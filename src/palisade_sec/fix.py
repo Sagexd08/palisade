@@ -3,9 +3,12 @@
 v1 is deterministic and fully offline - no LLM, no network, in keeping with
 the tool's safety contract. For every finding it emits a rule-tailored
 guardrail (ready to adapt into the codebase) plus a pytest that asserts the
-guardrail blocks the canonical attack AND keeps the happy path working.
-The plan is written to a markdown file; nothing in the scanned project is
-modified. An LLM-assisted mode that proposes concrete diffs is planned.
+guardrail blocks the canonical attack AND keeps the happy path working. The
+same guardrail also ships as an installable function in
+`palisade_sec.guardrails`, so it can be imported directly instead of
+hand-transcribed from the plan. The plan is written to a markdown file;
+nothing in the scanned project is modified. An LLM-assisted mode that
+proposes concrete diffs is planned.
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ from datetime import UTC, datetime
 
 from palisade_sec import __version__
 from palisade_sec.engine import Finding
+from palisade_sec.guardrails import GUARDRAIL_BY_FAMILY
 
 _GUARDRAILS: dict[str, tuple[str, str]] = {
     # family -> (guardrail snippet, pytest snippet)
@@ -21,9 +25,9 @@ _GUARDRAILS: dict[str, tuple[str, str]] = {
         '''import ast
 
 ALLOWED_NODES = (
-    ast.Module, ast.Expr, ast.Expression, ast.Call, ast.Name, ast.Load,
-    ast.Constant, ast.BinOp, ast.Add, ast.Sub, ast.Mult, ast.Div,
-    ast.Tuple, ast.List, ast.Dict, ast.keyword,
+    ast.Module, ast.Expr, ast.Expression, ast.Assign, ast.Call, ast.Name,
+    ast.Load, ast.Store, ast.Constant, ast.BinOp, ast.Add, ast.Sub, ast.Mult,
+    ast.Div, ast.Tuple, ast.List, ast.Dict, ast.keyword,
 )
 
 def validate_generated_code(code: str) -> str:
@@ -190,9 +194,11 @@ def build_fix_plan(findings: list[Finding], files_scanned: int, target: str) -> 
                 "(denylists/confirmation gates and name-only sanitizers have "
                 "been bypassed in real CVEs) - replace it with the guardrail below",
             ]
+        family = _family(f)
         lines += [
             "",
-            "**Guardrail:**",
+            f"**Guardrail** (also installable: `from palisade_sec.guardrails import "
+            f"{GUARDRAIL_BY_FAMILY[family]}`):",
             "",
             "```python",
             guard,
