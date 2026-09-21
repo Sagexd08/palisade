@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 from palisade_sec import ir
 from palisade_sec.rules.schema import match_strict
-from palisade_sec.semantic.walk import iter_calls
+from palisade_sec.semantic.walk import iter_calls, iter_calls_with_guards
 
 # Decorators that mark a function as a model-invocable tool, across the common
 # Python agent frameworks (LangChain `@tool` / `@agent.tool`, OpenAI Agents
@@ -82,13 +82,24 @@ CAPABILITIES: dict[str, tuple[str, ...]] = {
 @dataclass(frozen=True)
 class CapabilityHit:
     """One dangerous call the IR found inside a tool body - the evidence a
-    judgment is grounded on."""
+    judgment is grounded on.
+
+    `guarded` and `guard_condition` are structural facts, not a judgment: the
+    call sits inside the body or else-branch of an `if` whose test the IR
+    recorded (`IfBranch.loc.snippet`). This is deliberately conservative -
+    it says nothing about whether the guard is a real approval gate, a
+    dry-run flag, or an unrelated check; that distinction is left to the
+    JUDGE. Without this, `gated` was answered from a bare one-line call-site
+    snippet with no way to tell "guarded by a real if" from "a comment
+    nearby mentions confirmation"."""
 
     category: str
     func_path: str
     file: str
     line: int
     snippet: str
+    guarded: bool = False
+    guard_condition: str = ""
 
 
 @dataclass
@@ -160,7 +171,7 @@ def harvest_tools(modules: list[ir.Module]) -> list[ToolArtifact]:
                 continue
             hits: list[CapabilityHit] = []
             seen: set[tuple[str, int]] = set()
-            for call in iter_calls(fn.body):
+            for call, guard_stack in iter_calls_with_guards(fn.body):
                 cat = _match_category(call.func_path)
                 if cat is None:
                     continue
@@ -168,6 +179,7 @@ def harvest_tools(modules: list[ir.Module]) -> list[ToolArtifact]:
                 if key in seen:
                     continue
                 seen.add(key)
+                innermost = guard_stack[-1] if guard_stack else None
                 hits.append(
                     CapabilityHit(
                         category=cat,
@@ -175,6 +187,8 @@ def harvest_tools(modules: list[ir.Module]) -> list[ToolArtifact]:
                         file=call.loc.file,
                         line=call.loc.line,
                         snippet=call.loc.snippet,
+                        guarded=innermost is not None,
+                        guard_condition=innermost.loc.snippet if innermost else "",
                     )
                 )
             artifacts.append(

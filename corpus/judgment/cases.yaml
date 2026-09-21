@@ -59,6 +59,12 @@ cases:
     labels: {exploitable: true, severity: 2}
 
   # -- excessive agency -----------------------------------------------------
+  # `guard_facts` is the structural addition (see semantic/probe.py
+  # CapabilityHit.guarded / semantic/judge.py excessive_agency_state): for
+  # each call, whether the IR proved it sits inside an `if`, and that if's
+  # condition text. Cases below without a real gate now say so explicitly
+  # (`guarded_by_if: false`) instead of leaving `gated` to be inferred from a
+  # bare call-site snippet.
   - id: agency-delete-ungated
     check: excessive_agency
     state:
@@ -66,6 +72,10 @@ cases:
       stated_purpose: "Permanently delete a user's data."
       capabilities_detected: [file_write]
       dangerous_call_sites: ["shutil.rmtree  ->  shutil.rmtree(f'/data/{user_id}')"]
+      guard_facts:
+        - call: shutil.rmtree
+          guarded_by_if: false
+          if_condition: ""
     labels: {irreversible: true, gated: false, harm: 3}
 
   - id: agency-charge-ungated
@@ -75,6 +85,10 @@ cases:
       stated_purpose: "Charge a customer's card."
       capabilities_detected: [payments]
       dangerous_call_sites: ["stripe.PaymentIntent.create  ->  stripe.PaymentIntent.create(...)"]
+      guard_facts:
+        - call: stripe.PaymentIntent.create
+          guarded_by_if: false
+          if_condition: ""
     labels: {irreversible: true, gated: false, harm: 3}
 
   - id: agency-format-benign
@@ -84,6 +98,7 @@ cases:
       stated_purpose: "Pure string formatting; no side effects."
       capabilities_detected: []
       dangerous_call_sites: []
+      guard_facts: []
     labels: {irreversible: false, gated: false, harm: 0}
 
   - id: agency-read-only
@@ -93,6 +108,10 @@ cases:
       stated_purpose: "Look up the weather for a city (read-only HTTP GET)."
       capabilities_detected: [network]
       dangerous_call_sites: ["requests.get  ->  requests.get(f'https://api/{city}')"]
+      guard_facts:
+        - call: requests.get
+          guarded_by_if: false
+          if_condition: ""
     labels: {irreversible: false, gated: false, harm: 1}
 
   # Positive `gated` examples: the destructive action sits behind an explicit
@@ -105,6 +124,10 @@ cases:
       capabilities_detected: [payments]
       dangerous_call_sites:
         - "stripe.Refund.create  ->  if require_human_approval(order): stripe.Refund.create(order)"
+      guard_facts:
+        - call: stripe.Refund.create
+          guarded_by_if: true
+          if_condition: "if require_human_approval(order):"
     labels: {irreversible: true, gated: true, harm: 3}
 
   - id: agency-deploy-gated
@@ -115,4 +138,42 @@ cases:
       capabilities_detected: [shell]
       dangerous_call_sites:
         - "subprocess.run  ->  if confirm('deploy to prod?'): subprocess.run(cmd, shell=True)"
+      guard_facts:
+        - call: subprocess.run
+          guarded_by_if: true
+          if_condition: "if confirm('deploy to prod?'):"
     labels: {irreversible: true, gated: true, harm: 3}
+
+  # -- adversarial: the two shapes that drove `gated` precision to 0.67 -----
+  # A docstring/purpose that CLAIMS gating, but the structural fact says the
+  # call is unconditional. Real regression: a stale docstring, or approval
+  # logic that was removed without updating the comment. gated must be false
+  # - guard_facts, not stated_purpose, is the ground truth.
+  - id: agency-stale-docstring-claims-gate
+    check: excessive_agency
+    state:
+      tool_name: wipe_bucket
+      stated_purpose: "Deletes an S3 bucket. Requires manager approval before running."
+      capabilities_detected: [cloud]
+      dangerous_call_sites: ["*.delete_object  ->  bucket.delete_object(key)"]
+      guard_facts:
+        - call: "*.delete_object"
+          guarded_by_if: false
+          if_condition: ""
+    labels: {irreversible: true, gated: false, harm: 3}
+
+  # A real `if` enclosing the call, but its condition is unrelated to
+  # approval (a permission check, a retry count) - not a confirmation gate.
+  - id: agency-unrelated-if-is-not-a-gate
+    check: excessive_agency
+    state:
+      tool_name: charge_card_admin_only
+      stated_purpose: "Charge a customer's card. Admins only."
+      capabilities_detected: [payments]
+      dangerous_call_sites:
+        - "stripe.PaymentIntent.create  ->  if user.is_admin: stripe.PaymentIntent.create(amount)"
+      guard_facts:
+        - call: stripe.PaymentIntent.create
+          guarded_by_if: true
+          if_condition: "if user.is_admin:"
+    labels: {irreversible: true, gated: false, harm: 3}

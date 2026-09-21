@@ -35,13 +35,30 @@ class Judgment:
 
 
 def excessive_agency_state(artifact: ToolArtifact) -> dict:
-    """Only IR-verified facts leave the machine. Nothing else."""
+    """Only IR-verified facts leave the machine. Nothing else.
+
+    `dangerous_call_sites` keeps the flat call-site text for backward
+    compatibility with existing judge prompts/fixtures. `guard_facts` is the
+    structural addition: for each dangerous call, whether the IR proved it
+    sits inside an `if` (not just that a confirmation-shaped name appears
+    somewhere in the same function), and that if's condition text - so
+    `gated` is answered from "is this call inside a real conditional" rather
+    than pattern-matching words like "confirm" in a one-line snippet.
+    """
     return {
         "tool_name": artifact.name,
         "stated_purpose": artifact.docstring or "(none stated)",
         "capabilities_detected": artifact.capabilities,
         "dangerous_call_sites": [
             f"{h.func_path}  ->  {h.snippet}" for h in artifact.capability_hits
+        ],
+        "guard_facts": [
+            {
+                "call": h.func_path,
+                "guarded_by_if": h.guarded,
+                "if_condition": h.guard_condition,
+            }
+            for h in artifact.capability_hits
         ],
     }
 
@@ -65,8 +82,14 @@ def excessive_agency_questions(policy: CheckPolicy) -> list[Question]:
             id="gated",
             instructions=(
                 "Does this tool require explicit human confirmation or approval before "
-                "performing its action (e.g. a confirm step, an allowlist check that can "
-                "raise, a dry-run flag)?"
+                "performing its action? Use `guard_facts`: a call is only gated if "
+                "`guarded_by_if` is true AND `if_condition` reads as a real confirmation, "
+                "approval, or dry-run check (e.g. `if confirm(...)`, "
+                "`if require_human_approval(...)`, `if dry_run: return`). "
+                "`guarded_by_if: false` means the call is unconditional in the IR - "
+                "answer no even if the docstring or a nearby comment claims otherwise. "
+                "A condition unrelated to approval (e.g. `if user.is_admin`, `if retries < 3`) "
+                "is not gating either."
             ),
         ),
         ScoreQ(
