@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`palisade_sec.guardrails`** - `fix`'s four remediation templates
+  (exec/shell/sql/http) ship as a real importable module
+  (`validate_generated_code`, `run_model_command`, `validate_generated_sql`,
+  `validate_outbound_url`), not just markdown to hand-transcribe. Same
+  offline/deterministic contract as `fix` itself; `sql` needs the new
+  `guardrails-sql` extra (`sqlglot`) so the offline core stays
+  dependency-lean. `fix`'s plan now names the installable entry point per
+  finding.
+- **Branch-guard-aware `gated` judgment.** The excessive-agency check now
+  tells the judge whether a dangerous call actually sits inside an `if` (and
+  that `if`'s condition text), reusing the same kind of structural fact the
+  deterministic taint engine already computes for sanitizer detection. Two
+  adversarial calibration cases target the false-positive shapes suspected
+  behind `gated`'s 0.67 precision: a stale docstring claiming a gate that
+  isn't structurally there, and a real `if` whose condition is unrelated to
+  approval. `gated` stays `known_weak` until a real `scripts/calibrate.py`
+  run re-measures it against this richer state.
+
+### Fixed
+
+- **`fix`'s exec guardrail template rejected its own documented happy path.**
+  The AST allowlist never included `Assign`/`Store`, so the "expected code"
+  example in both the markdown template and the new installable guard raised
+  `UnsafeCodeError` if actually run. Fixed in both places.
+
 ## 0.5.0 - 2026-09-21
 
 The applied agentic-safety layer. The deterministic core (`scan`, `map`,
