@@ -34,7 +34,12 @@ from palisade_sec.semantic.judge import (
     excessive_agency_state,
     interpret,
 )
-from palisade_sec.semantic.policy import CheckPolicy, SemanticPolicy, default_policy
+from palisade_sec.semantic.policy import (
+    CheckPolicy,
+    SemanticPolicy,
+    default_policy,
+    load_policy,
+)
 from palisade_sec.semantic.probe import ToolArtifact, harvest_tools
 from palisade_sec.semantic.risk import static_impact, static_likelihood
 
@@ -231,13 +236,24 @@ def run_audit(
     backend: JudgeBackend,
     config_file: str | None = None,
     policy: SemanticPolicy | None = None,
+    policy_file: str | None = None,
 ) -> AuditReport:
     """Run both semantic checks. Lowers the project and runs the taint engine
-    once (via run_scan) so exploitability judges the real findings."""
+    once (via run_scan) so exploitability judges the real findings.
+
+    An explicit `policy` wins (callers and tests). Otherwise the policy is
+    loaded from `policy_file`, else the scanned tree, else the defaults; its
+    warnings join the report's diagnostics so a policy that was skipped is
+    never skipped silently.
+    """
     from palisade_sec.scanner import lower_project, run_scan
 
     scan = run_scan(target, config_file=config_file)
     low = lower_project(target, config_file)
+    policy_warnings: list[str] = []
+    if policy is None:
+        root = target if target.is_dir() else target.parent
+        policy, policy_warnings = load_policy(root, policy_file)
     findings = audit_excessive_agency(low.modules, backend, policy)
     findings += audit_taint_exploitability(scan.findings, backend, policy)
     tools_seen = len(harvest_tools(low.modules))
@@ -245,7 +261,11 @@ def run_audit(
         findings=findings,
         tools_seen=tools_seen,
         files_scanned=low.files_scanned,
-        diagnostics=(list(low.warnings), list(low.notes), list(low.skipped)),
+        diagnostics=(
+            [*low.warnings, *policy_warnings],
+            list(low.notes),
+            list(low.skipped),
+        ),
     )
 
 

@@ -108,7 +108,7 @@ Mapped to the six things a safety engineer does:
 | **SEE** | AI System Map: LLM calls, prompts, tools, agents, retrieval, dangerous flags | static | ✅ `map` (incl. multi-agent graph: OpenAI Agents SDK, LangGraph, CrewAI) |
 | **JUDGE** | Semantic checks + 5 taint rules + the deterministic `PI-AGENT-HANDOFF` finding | static | ✅ 2 semantic (excessive agency, taint exploitability) + 5 taint + agent-handoff; ⬜ fake-sanitizer/secrets-in-prompt/unsafe-defaults/insecure-output |
 | **PROBE** | Map-driven red-team + behavioral evals (jailbreak, tool-use safety) | active | ✅ synthesis + gated execution (`--execute`/`--approve`, `HttpTarget`, judge-backed scorer) |
-| **DECIDE** | Unified risk model (`likelihood × impact`) + editable per-org policy | static+active | ✅ risk model + posture; 🚧 per-org policy profiles |
+| **DECIDE** | Unified risk model (`likelihood × impact`) + editable per-org policy | static+active | ✅ risk model + posture + policy files (`--policy`, `.palisade/policy.yaml`); ⬜ named org profiles |
 | **GUARD/FIX** | Guardrail generator, safety-case generator, remediation + regression tests | active+runtime | ✅ deterministic taint `fix`; ⬜ guardrail + safety-case generators |
 | **ENFORCE** | CI gate, baseline, posture report, PR comments, SARIF, GitHub Action, pre-commit | all | ✅ gates + posture + SARIF (CWE/OWASP-2025 tags) + Action + pre-commit; ⬜ PR-comment agent |
 | **WATCH** | Opt-in self-hosted runtime SDK: monitoring, circuit-breaking, incident capture | runtime | ⬜ |
@@ -159,7 +159,8 @@ Credibly does the whole job, pre-production.
 - **PROBE:** `redteam` synthesis ✅ + execution adapters (`HttpTarget`) + live
   judge-backed scorer ✅
 - **DECIDE + ENFORCE:** `palisade review` = one prioritized report merging taint +
-  semantic + red-team, with a posture score ✅; SARIF + CWE/OWASP-2025 + Action +
+  semantic + red-team, with a posture score ✅; per-org policy loading
+  (`.palisade/policy.yaml`, `--policy`) ✅; SARIF + CWE/OWASP-2025 + Action +
   pre-commit ✅
 - **GUARD:** guardrail generator for the top findings + safety-case draft ⬜
   (the last open v1 gap)
@@ -203,12 +204,13 @@ check is data, not engine code. Requires an endpoint; explicit about egress.
 scorer); emit an evidence report. *Synthesis + gated execution done.*
 
 **DECIDE / policy** — Unified `risk = likelihood × impact` across static + active
-findings, surfaced as the `review` posture score. *Risk model + posture done.
-Per-org policy is next and is further off than it looks: `semantic/policy.py`
-holds the thresholds and defaults and `audit`/`review` route through them, but
-there is no reader for `.palisade/policy.yaml` yet, so changing a threshold means
-editing Python. Until that lands the policy is ours, not the customer's - which
-is the one gap that undercuts the "engineer you hire" framing.*
+findings, surfaced as the `review` posture score, routed by a policy the customer
+owns: `--policy PATH`, `.palisade/policy.yaml`, or `[tool.palisade.semantic]`.
+*Risk model, posture and policy loading done.* `criteria` is deliberately
+confined: it is interpolated into the judge's instructions, so a policy file
+discovered inside a scanned repo may set thresholds but not criteria - otherwise
+the repo under audit could rewrite the question being asked about it. Remaining:
+shipped org profiles (fintech/healthcare/default) as presets.
 
 **GUARD** — For each confirmed risk, generate an installable guardrail (allowlist
 wrapper, confirmation gate, output validator, host allowlist) + a regression

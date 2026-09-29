@@ -96,15 +96,29 @@ def test_doc_covers_every_shipped_backend(doc: str, backend: str) -> None:
     assert backend in doc, f"{backend} backend ships but the doc never names it"
 
 
-def test_doc_does_not_claim_policy_files_load(doc: str) -> None:
-    """The spec shows a .palisade/policy.yaml. No reader exists, so the doc has
-    to say so — this is the gap most likely to mislead someone adopting it."""
+def test_doc_matches_whether_policy_files_load(doc: str) -> None:
+    """This test has now run in both directions.
+
+    While `policy.py` had no reader, it asserted the doc said so - the YAML in
+    §5 was the gap most likely to mislead someone adopting the spec. The reader
+    landed, so it now asserts the opposite: the doc must not still carry the
+    warning, and must document the trust boundary on `criteria`, which is the
+    part of the feature that is security-relevant rather than cosmetic.
+    """
     policy = (SRC / "semantic" / "policy.py").read_text(encoding="utf-8")
-    loads_files = bool(re.search(r"def load_policy|policy\.yaml[\"']|read_text", policy))
-    if loads_files:
-        pytest.skip("policy file loading now exists; update the doc and drop this test")
-    assert "does not load yet" in doc, (
-        "policy.py still has no file reader; the doc must not imply the YAML works"
+    loads_files = "def load_policy" in policy
+    if not loads_files:
+        assert "does not load yet" in doc, (
+            "policy.py has no file reader; the doc must not imply the YAML works"
+        )
+        return
+    assert "does not load yet" not in doc, (
+        "`load_policy` exists now; the doc still says policy files do not load"
+    )
+    assert "--policy" in doc, "the doc must name the flag that loads a policy"
+    assert "criteria" in doc and "judge" in doc, (
+        "the doc must explain why `criteria` from a discovered file is refused - "
+        "it is prompt text reaching the judge"
     )
 
 

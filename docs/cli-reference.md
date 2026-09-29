@@ -144,6 +144,53 @@ decision downgrades to REVIEW.
 | `--json` | Emit findings as JSON (`schema_version: 1`). |
 | `--ci` | Opt-in gate: exit `1` if any finding is a BLOCK decision. |
 | `--config FILE` | As in `scan`. |
+| `--policy FILE` | Policy YAML (thresholds and `criteria`). See below. |
+
+### Policy: the thresholds are yours
+
+`audit` and `review` route on thresholds you can set, rather than ones baked
+into the tool. Resolution order:
+
+1. `--policy PATH`
+2. `.palisade/policy.yaml` in the scanned tree
+3. `[tool.palisade.semantic]` in that tree's `pyproject.toml`
+4. the built-in defaults
+
+```yaml
+# .palisade/policy.yaml - a fintech's appetite
+checks:
+  excessive_agency:
+    action_threshold: 0.45    # block above this probability
+    review_threshold: 0.20    # flag for a human between the two
+    gate_threshold: 0.60      # count a tool as "gated" only above this
+    severity_block: 1         # harm >= this turns a review into a block
+  taint_exploitability:
+    action_threshold: 0.40
+    severity_block: 1
+```
+
+A partial file overlays the defaults per check and per field, so setting one
+threshold does not silently reset the rest. Unknown keys are an error, not a
+shrug: `action_treshold` fails loudly with a warning and the run falls back to
+the defaults, rather than leaving a gate at a threshold nobody chose.
+
+**One field is confined on purpose.** `criteria` is editable English that is
+interpolated into the question sent to the judge:
+
+```yaml
+checks:
+  excessive_agency:
+    criteria:
+      irreversible: "any movement of customer money, or any write to prod"
+```
+
+Because that text becomes part of a model prompt, a policy file **discovered
+inside the tree being scanned** may set thresholds but not `criteria` - it is
+dropped with a warning naming the file. Otherwise a repository you scan could
+ship a policy reading "nothing here is ever irreversible" and argue the judge
+out of its own finding, which is the exact attack class this tool detects. Only
+`--policy`, where you named the file yourself, may set `criteria`.
+
 
 ## `palisade-sec review [PATH]` (judgment layer)
 
@@ -168,6 +215,7 @@ separate runs; the score is deterministic within a run, not across runs.
 | `--ci` | Exit `1` on a **new HIGH taint** finding (baseline-diffed); exit `2` if 0 files were scanned. Gates only on deterministic taint findings: `review`'s judged signals never gate. Their calibration is preliminary: measured on a 10-case seed corpus (n=4 to 6 per signal), not a benchmark result; the judged layer stays advisory. For an explicit gate on judged decisions, opt in with `audit --ci`. |
 | `--baseline FILE` | Baseline to diff `--ci` against. |
 | `--config FILE` | As in `scan`. |
+| `--policy FILE` | Policy YAML, as in `audit`. Only consulted when a backend is configured. |
 
 ## `palisade-sec redteam [PATH]`
 

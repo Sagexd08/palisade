@@ -493,6 +493,15 @@ def audit(
     config: str | None = typer.Option(
         None, "--config", help="Config file (.palisade.toml format)."
     ),
+    policy: str | None = typer.Option(
+        None,
+        "--policy",
+        # Escaped: rich reads `[tool.palisade.semantic]` as a style tag and
+        # deletes it, which left the help text saying "read from
+        # .palisade/policy.yaml or ;". Same trap as the `[js]` install hints.
+        help="Policy file (YAML). Also read from .palisade/policy.yaml or "
+        "\\[tool.palisade.semantic]; only a --policy file may set criteria.",
+    ),
 ) -> None:
     """AI-safety audit (judgment tier): excessive-agency and taint-path exploitability.
 
@@ -521,7 +530,7 @@ def audit(
         )
 
     try:
-        report = run_audit(target, backend, config_file=config)
+        report = run_audit(target, backend, config_file=config, policy_file=policy)
     except JudgeError as exc:
         typer.echo(f"error: judgment backend failed: {exc}", err=True)
         raise typer.Exit(2) from exc
@@ -554,6 +563,15 @@ def review(
     config: str | None = typer.Option(
         None, "--config", help="Config file (.palisade.toml format)."
     ),
+    policy: str | None = typer.Option(
+        None,
+        "--policy",
+        # Escaped: rich reads `[tool.palisade.semantic]` as a style tag and
+        # deletes it, which left the help text saying "read from
+        # .palisade/policy.yaml or ;". Same trap as the `[js]` install hints.
+        help="Policy file (YAML). Also read from .palisade/policy.yaml or "
+        "\\[tool.palisade.semantic]; only a --policy file may set criteria.",
+    ),
 ) -> None:
     """One prioritized report with a posture score, composing scan + map + the
     semantic checks + red-team synthesis.
@@ -581,7 +599,7 @@ def review(
         typer.echo(f"note: judged checks skipped - {exc}", err=True)
 
     try:
-        result = run_review(target, backend, config_file=config)
+        result = run_review(target, backend, config_file=config, policy_file=policy)
     except JudgeError as exc:
         # judged signals are advisory: a judge outage must never break the
         # deterministic review or fail its --ci gate.

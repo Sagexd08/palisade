@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Policy files load.** `audit` and `review` route on thresholds you own:
+  `--policy PATH`, `.palisade/policy.yaml` in the scanned tree, or
+  `[tool.palisade.semantic]` in its `pyproject.toml`, else the built-in
+  defaults. The model and the defaults had been there since 0.5.0 and
+  `audit`/`review` already routed through them, but nothing read a file - so
+  changing a threshold meant editing Python, and the policy was ours rather
+  than the customer's. A partial file overlays the defaults per check and per
+  field, so setting one threshold does not reset the rest; an unknown key is an
+  error (`extra="forbid"`), and bad input falls back to the defaults with a
+  warning instead of leaving a gate at a threshold nobody chose.
+- **`criteria` is confined to a policy you name.** A `criteria` string is
+  interpolated into the instructions sent to the judge, so it is prompt text. A
+  policy file *discovered inside the tree being scanned* is therefore untrusted
+  input reaching a model - the exact shape Palisade detects - and a scanned
+  repository could otherwise ship a `.palisade/policy.yaml` reading "nothing
+  here is ever irreversible" and argue the judge out of its own finding.
+  Discovered files may set thresholds; only `--policy` may set `criteria`, and a
+  dropped one warns with the filename. Same split already applied to
+  `rules_dir`: an explicit flag is the user's choice, in-tree discovery is
+  confined. Pinned end-to-end, including that the refused string never appears
+  in the question text built for the model.
+
+### Fixed
+
+- Rich ate `[tool.palisade.semantic]` out of the new `--policy` help text,
+  rendering it as "read from .palisade/policy.yaml or ;". The same
+  markup-eats-brackets bug 0.6.1 fixed for the `[js]` and `[judge]` install
+  hints, caught this time by reading the help output rather than shipping it.
+
 ## 0.6.1 - 2026-09-30
 
 A documentation and release-hygiene release. No behaviour changes to any

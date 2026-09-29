@@ -142,7 +142,39 @@ keeps working regardless.
 - **An unverified backend cannot manufacture severity.** It downgrades to REVIEW
   rather than BLOCK, and cannot raise a Critical posture alone.
 
+## Your thresholds, not ours
+
+`audit` and `review` route to pass / review / block on thresholds you own.
+Drop a `.palisade/policy.yaml` in the project, put the same keys under
+`[tool.palisade.semantic]` in `pyproject.toml`, or name a file with
+`--policy PATH`:
+
+```yaml
+checks:
+  excessive_agency:
+    action_threshold: 0.45    # block above this probability
+    review_threshold: 0.20    # human review between the two
+    gate_threshold: 0.60      # count a tool as "gated" only above this
+    severity_block: 1         # harm >= this turns a review into a block
+  taint_exploitability:
+    action_threshold: 0.40
+    severity_block: 1
+```
+
+A partial file overlays the defaults, so setting one threshold leaves the rest
+alone. A typo is an error, not a shrug: the run warns and falls back to the
+defaults rather than quietly gating at a number nobody picked.
+
+`criteria` - editable English that sharpens the question put to the model - has
+one restriction, and it is deliberate. That text becomes part of the prompt, so
+a policy file **found inside the code being scanned** may set thresholds but not
+`criteria`; it is dropped with a warning. Otherwise a repository you audit could
+ship a policy reading "nothing here is ever irreversible" and argue the judge
+out of its own finding - which is the attack class this tool exists to detect.
+Pass `--policy` to set `criteria` yourself.
+
 ## Configuration reference
+
 
 | Variable | Meaning |
 |---|---|

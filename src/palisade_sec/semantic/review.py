@@ -29,7 +29,7 @@ from palisade_sec.semantic.audit import (
     audit_taint_exploitability,
 )
 from palisade_sec.semantic.inventory import build_map
-from palisade_sec.semantic.policy import SemanticPolicy
+from palisade_sec.semantic.policy import SemanticPolicy, load_policy
 from palisade_sec.semantic.redteam import synthesize
 from palisade_sec.semantic.risk import (
     critical_band_allowed,
@@ -150,8 +150,14 @@ def run_review(
     backend: JudgeBackend | None,
     config_file: str | None = None,
     policy: SemanticPolicy | None = None,
+    policy_file: str | None = None,
 ) -> ReviewReport:
-    """Compose the review. `backend=None` means taint-only (offline) posture."""
+    """Compose the review. `backend=None` means taint-only (offline) posture.
+
+    The policy is only consulted when there is a backend: taint-only posture is
+    deterministic and has no thresholds to route by. So a broken policy file
+    does not warn on an offline run it could not have affected.
+    """
     from palisade_sec.scanner import lower_project, run_scan
 
     scan = run_scan(target, config_file=config_file)
@@ -161,7 +167,11 @@ def run_review(
 
     exploitability = []
     agency = []
+    policy_warnings: list[str] = []
     if backend is not None:
+        if policy is None:
+            root = target if target.is_dir() else target.parent
+            policy, policy_warnings = load_policy(root, policy_file)
         agency = audit_excessive_agency(low.modules, backend, policy)
         exploitability = audit_taint_exploitability(scan.findings, backend, policy)
 
@@ -176,7 +186,11 @@ def run_review(
         backend_name=backend.name if backend is not None else None,
         backend_verified=backend.verified if backend is not None else True,
         semantic_findings=agency + exploitability,
-        diagnostics=(list(low.warnings), list(low.notes), list(low.skipped)),
+        diagnostics=(
+            [*low.warnings, *policy_warnings],
+            list(low.notes),
+            list(low.skipped),
+        ),
     )
 
 

@@ -98,7 +98,7 @@ job, not one check:
 | --- | --- | --- | --- |
 | 1 | **SEE** | inventory every place AI is used | ✅ `map`, offline, 6 artifact kinds |
 | 2 | **JUDGE** | assess every failure mode | 🚧 **2 of ~9** checks + **6** taint rules |
-| 3 | **DECIDE** | rank by risk, apply *your* policy | 🚧 thresholds in code (`semantic/policy.py`); **no file loading yet** |
+| 3 | **DECIDE** | rank by risk, apply *your* policy | ✅ thresholds from `.palisade/policy.yaml` / `[tool.palisade.semantic]` / `--policy`; ⬜ named org profiles (fintech/healthcare) |
 | 4 | **FIX** | propose guardrail + test | ✅ taint (`fix`); ⬜ semantic |
 | 5 | **ENFORCE** | CI gate, baseline, posture report | ✅ `scan/review --ci` + baseline + posture in `review`; `audit --ci` BLOCK |
 | 6 | **PROVE** | calibrated, grounded, not hallucinated | ✅ grounded harvest; ✅ **per-check calibration measured** (`corpus/judgment/RESULTS.md`), ⬜ not yet a CI gate |
@@ -303,18 +303,32 @@ semantic:
 Same TypeSafe judgment; a fintech sets `severity_block: 1`, a hobby project sets
 `3`. The criteria are editable English, so your policy *is* the prompt.
 
-> **[reconciled] — the YAML above does not load yet.** `semantic/policy.py` has
-> the model (`CheckPolicy`: `action_threshold` 0.60, `review_threshold` 0.30,
-> `gate_threshold` 0.50, `severity_block` 2, plus `criteria`) and
-> `default_policy()`, and `audit`/`review` route through it — but there is **no
-> reader** for `.palisade/policy.yaml` or `[tool.palisade.semantic]`. Every run
-> uses the defaults. Changing thresholds today means editing Python.
+> **[reconciled] — this now loads.** `load_policy()` in `semantic/policy.py`
+> reads, in precedence order: `--policy PATH`, then `.palisade/policy.yaml` in
+> the scanned tree, then `[tool.palisade.semantic]` in its `pyproject.toml`,
+> then the built-in defaults. A partial file overlays the defaults per check and
+> per field rather than replacing them, and bad input (a typo'd key, a wrong
+> type, malformed YAML) falls back to the defaults with a warning instead of
+> leaving a gate at a threshold nobody chose — `extra="forbid"`, so
+> `action_treshold` is an error rather than a silently ignored key.
 >
-> This is the single largest gap between this document and the code, and it is
-> the one that matters most for the "hired engineer" framing: without file
-> loading, the policy is *ours*, not the customer's. It is small — a pydantic
-> model that already exists plus a loader and a config test — and it should
-> probably come before check #3.
+> **`criteria` has a trust boundary, and this is the interesting part.** A
+> criteria string is interpolated into the instructions sent to the judge
+> (`semantic/judge.py:50`), so it is *prompt text*. A policy file discovered
+> inside the tree being scanned is therefore untrusted input reaching a model —
+> the exact shape this tool exists to find. A scanned repository could otherwise
+> ship a `.palisade/policy.yaml` reading "nothing in this repo is ever
+> irreversible" and talk the judge out of its own finding.
+>
+> So a **discovered** file may set thresholds — a project stating its own risk
+> appetite, like the rest of `.palisade.toml` — but its `criteria` is dropped
+> with a warning naming the file. Only `--policy`, where the user named the
+> file, may set criteria. That is the same split already applied to `rules_dir`
+> in `scanner.py`: an explicit flag is the user's choice, in-tree discovery is
+> confined. `tests/test_policy_loading.py` pins it, including at the far end of
+> the chain — that the refused string never appears in the question text built
+> for the model — with a mutation guard proving criteria does reach that text
+> when it is trusted.
 
 ## 6. What stays sacred
 
@@ -366,8 +380,11 @@ The original three next steps, as they actually stand:
    so nothing unrecognised is silenced any more. See "Why the sanitizer check
    shrank" in §4. What remains is a narrower promote-or-close question on the MED
    tier.
-2. **Policy engine file loading** — *still open, and now the biggest gap.* The
-   model exists; the reader does not. See the note in §5.
+2. ~~Policy engine file loading~~ — **done.** `load_policy()` reads
+   `--policy` / `.palisade/policy.yaml` / `[tool.palisade.semantic]`, with
+   `criteria` confined to an explicitly named file because it is prompt text
+   reaching the judge. What remains is the smaller piece: named org profiles
+   (fintech/healthcare/default) as shipped presets.
 3. **Corpus eval harness for the judged tier** — *half done.* `scripts/calibrate.py`
    and `judge/calibration.py` exist (precision/recall/Brier per Noul signal,
    exact and within-1 accuracy per Score signal, plus a vacuity guard that fails
@@ -385,8 +402,8 @@ In priority order, given recall 0.200 and 2 of ~9 checks:
 1. **Recall, not breadth.** The three named gaps in `docs/roadmap.md`, plus the
    agent-graph entry-point gap found in PR #17. Breadth on a detector that finds
    a fifth of what it claims is the roadmap's own named trap.
-2. **Policy file loading** (§5) — small, and it is what makes the tier *the
-   customer's* conscience rather than ours.
+2. ~~Policy file loading~~ — done; see §5. The remaining piece is shipped org
+   profiles, which is presets rather than plumbing.
 3. **Calibration into CI** — the deterministic gate is a headline guarantee; the
    judged tier's is run by hand. Add a case per check and gate it.
 4. **Then** checks 3–5, each with labelled cases before it ships.
