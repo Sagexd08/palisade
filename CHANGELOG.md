@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.6.1 - 2026-09-30
+
+A documentation and release-hygiene release. No behaviour changes to any
+command.
+
+### Added
+
+- **PyPI project links.** 0.6.0 published only `Homepage` and `Issues`, so
+  the docs site and the changelog were unreachable from the package page.
+  The page now links `Homepage` (the site, not the repo), `Documentation`,
+  `Source`, `Changelog` and `Issues`.
+
+### Fixed
+
+- **The version had two sources of truth and nothing checked they agreed.**
+  `pyproject.toml` decides what PyPI receives and what the release workflow
+  matches the git tag against; `palisade_sec.__version__` decides what the
+  artifacts say - `--version`, the baseline JSON, the fix plan header, the
+  JSON and markdown reports, the HTTP user agent, and the SARIF
+  `tool.driver.version` that GitHub code scanning retains against every
+  alert. Bumping one without the other would have published a release whose
+  own artifacts misreported which release produced them, and the release
+  gate would not have noticed. Now asserted by
+  `tests/test_version_is_single_sourced.py`, including through a real SARIF
+  document.
+
+### Docs
+
+- **`docs/typesafe-integration.md` reconciled against the code.** The spec
+  for the judged tier had drifted for several releases: it claimed 1 of ~9
+  checks and 5 taint rules (it is 2 and 6), said `review` had no posture
+  report (it ships one), said per-check calibration was unbuilt (it is
+  measured and published in `corpus/judgment/RESULTS.md`), described a
+  4-module layout that is now 13 files plus two subpackages, and told
+  readers to install `palisade-sec[semantic]` and set `TYPESAFE_API_KEY`
+  when the extra is `[judge]`, three backends are supported, and keys are
+  set with `palisade-sec connect llm`.
+- Two claims overstated and are now marked as gaps: the `.palisade/policy.yaml`
+  in that document **has no reader** - thresholds live in code - and the
+  sanitizer check's scope collapsed when 0.5.1 made `_body_validates`
+  allowlist-only.
+- `tests/test_internal_docs_match_code.py` pins the claims in that document
+  that are countable from the code, so the spec can describe unbuilt things
+  but cannot misstate shipped ones.
+
 ## 0.6.0 - 2026-09-29
 
 Palisade becomes a complete CLI product: GitHub, Slack and an LLM provider
