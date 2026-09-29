@@ -1,9 +1,10 @@
 # Recall protocol: how to make the number falsifiable
 
-Precision is measured against 18 clean repos that must stay silent, gated in
-CI, and it has held at **1.000**. Recall has no equivalent discipline. It is
-currently **0.200** over **10 hand-verified paths in 8 repos**, and the next
-engine work is aimed squarely at the 8 it misses.
+Precision is measured across all 26 corpus repos - every HIGH finding that is
+not a recorded label counts against it, in an audited repo as much as in a
+clean one - and it has held at **1.000**. Recall has no equivalent discipline.
+It is currently **0.200** over **10 hand-verified paths in 8 repos**, all of
+them train, and the next engine work is aimed squarely at the 8 it misses.
 
 That is the problem this document exists to prevent. Fixing the eight misses
 you can read in a table and then publishing the resulting recall is fitting to
@@ -150,16 +151,82 @@ Interleaving them means seeing a held-out miss while still holding the freedom
 to relabel - at which point the wall between ground truth and the fix is gone,
 whatever anyone intended. Two passes, a commit between.
 
-## Targets
+## What counts as a path (decided before measuring, applied uniformly)
 
-| | Now | Target |
+The first labelling pass produced 15 candidates. Six became labels. The three
+rules below are what cut the other nine, and they are written here because a
+curation rule applied case by case is indistinguishable from choosing the
+answer.
+
+1. **The wiring must be in this repo.** Untrusted text must reach the
+   dangerous capability through code in the repo being scanned. A framework
+   that merely *ships* a dangerous tool for a user to register does not
+   qualify: `HttpPlugin.get(url)` is a plugin doing exactly its job, and
+   reporting it would be a false positive against the framework, not a
+   finding. The wiring lives in the adopter's repo, which is what Palisade
+   scans there.
+   This is the same standard that rejected Haystack's `LinkContentFetcher`
+   during the pass, so applying it to Semantic Kernel's plugins and
+   pydantic-ai's `web_fetch` tool is consistency, not convenience. It removed
+   the largest single group of candidates.
+2. **One label per mechanism, not per sibling.** Four near-identical methods
+   of one class (`get`/`post`/`put`/`delete`) are one mechanism at four sites.
+   Labelling all four makes `n` look bigger while making the estimate worse:
+   the engine either handles the shape or it does not, so the four move
+   together and one behaviour swings the number by 4/n.
+3. **The sink is the earliest line at which the capability is exercised** on
+   model-derived data. Where a flow loads an attacker-named module and then
+   calls into it, the label goes on the load.
+
+   *Disclosed:* this rule tends to pick the more recognisable of two adjacent
+   lines, so it is not neutral with respect to the score. It was fixed before
+   any measurement and applies to every future label, including ones where it
+   costs. The alternative - choosing per label - is worse, because then the
+   coordinate is chosen after the fact.
+
+## Disclosure: what the labelling pass learned about the engine
+
+The labelling itself was delegated to agents given the ground-truth criteria
+and no knowledge of Palisade, which is why no candidate came back with a
+diagnosis attached. But assigning each label a `rule:` id required knowing the
+rule taxonomy, and in doing so this session read the rules' **sink
+vocabularies**, not just their titles.
+
+That is a partial leak and is recorded rather than glossed: generic knowledge
+of which sink names are modelled is now held alongside six held-out labels, so
+the *sink-vocabulary* dimension of these six is no longer strictly blind. The
+taint-shape dimension is.
+
+The fix is mechanical, so the next pass does not repeat it:
+`tests/test_recall_protocol.py` now validates every `rule:` against the shipped
+rule ids. A labeller needs the id to be **valid**, never the patterns behind
+it, and the sink's capability category (SQL, shell, code execution, HTTP,
+handoff) is readable off the sink line itself.
+
+## Targets, and the first pass against them
+
+| | Target | After pass 1 |
 |---|---|---|
-| Labelled paths | 10 | ~40 |
-| Repos carrying labels | 8 | ~20 |
-| Held-out paths | 0 | >= 15, across >= 6 repos |
+| Labelled paths | ~40 | 16 |
+| Repos carrying labels | ~20 | 12 |
+| Held-out paths | >= 15, across >= 6 repos | **6, across 4 repos** |
 
-18 of the 26 repos carry no labels at all today; they are precision ballast.
-Several almost certainly contain real paths nobody has looked for.
+The target was not met, and was not padded to meet it. Of the 12 held-out
+repos, 8 produced nothing: several are thin API clients or a vector store with
+no text-generation call anywhere, and two agent frameworks dispatch only into
+tools their adopter supplies.
+
+Six paths is a weak estimate and every report of it must say so. Two ways to
+grow it honestly:
+
+- **Add repos**, assigned by the same recorded seeded shuffle before anyone
+  reads them. Growing the corpus is always legitimate.
+- **Retire train paths** as gaps close, which frees nothing - retiring moves
+  the other way. There is no honest route from 6 to 15 that runs through the
+  repos already assigned.
+
+Relabelling an assigned repo, or loosening rule 1 above after seeing the
+number, is the one-way door walked backwards.
 
 ## Measurement protocol
 

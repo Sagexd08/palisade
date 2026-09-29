@@ -17,6 +17,7 @@ Two properties matter more than the plumbing:
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -113,10 +114,25 @@ def test_the_existing_paths_are_all_train(corpus: dict) -> None:
     text is the specification the engine fixes are written against, so none of
     them can ever serve as held-out evidence. This test is what stops a future
     change quietly reclassifying one to improve the headline.
+
+    Matching is on the full repo name, plus the base name when the suffix is one
+    of the corpus's own version markers (`vanna-cve` and `vanna-later` are both
+    "vanna" in the prose). It deliberately does *not* split on the first hyphen:
+    that caught `pydantic-ai` on an unrelated sentence about pydantic body
+    params being taint sources, which would have disqualified a clean held-out
+    repo over a word it shares with a library.
     """
     held = [r["name"] for r in corpus["repos"] if r.get("expect") and r.get("split") == "held-out"]
     diagnosed = PROOF.read_text(encoding="utf-8")
-    leaked = [name for name in held if name.split("-")[0] in diagnosed]
+    markers = ("-cve", "-later", "-patched")
+
+    def _aliases(name: str) -> list[str]:
+        for suffix in markers:
+            if name.endswith(suffix):
+                return [name, name[: -len(suffix)]]
+        return [name]
+
+    leaked = [name for name in held if any(a in diagnosed for a in _aliases(name))]
     assert not leaked, (
         "these are held-out but their misses are already explained in "
         f"docs/proof-scans.md, so the number they produce is not evidence: {leaked}"
@@ -201,6 +217,63 @@ def test_the_diagnosis_detector_actually_fires(corpus: dict) -> None:
         "no train label trips the diagnosis detector, so it would not catch a "
         "held-out one either - the markers need widening"
     )
+
+
+def _shipped_rule_ids() -> set[str]:
+    yaml_ids = {
+        m.group(1)
+        for path in (ROOT / "src" / "palisade_sec" / "rules").glob("*.yaml")
+        for m in [re.search(r"^id:\s*(\S+)", path.read_text(encoding="utf-8"), re.M)]
+        if m
+    }
+    agents = (ROOT / "src" / "palisade_sec" / "semantic" / "agents" / "findings.py").read_text(
+        encoding="utf-8"
+    )
+    return yaml_ids | set(re.findall(r'^RULE_ID\s*=\s*"([^"]+)"', agents, re.M))
+
+
+def test_every_label_names_a_shipped_rule(corpus: dict) -> None:
+    """So that labelling never needs to read the rules' sink patterns.
+
+    Assigning a `rule:` id used to mean opening the rule files to see which one
+    covered a sink - which is how engine internals leak into a pass that is
+    supposed to be blind to them (see the disclosure in RECALL-PROTOCOL.md). A
+    labeller needs the id to be *valid*; the capability category is readable
+    off the sink line itself. This test supplies the validity check so nobody
+    has to go looking.
+    """
+    shipped = _shipped_rule_ids()
+    assert len(shipped) >= 6, f"rule discovery is broken, found {shipped}"
+    bad = [
+        f"{r['name']}:{e['file']}:{e['line']} -> {e['rule']}"
+        for r in corpus["repos"]
+        for e in (r.get("expect") or [])
+        if e["rule"] not in shipped
+    ]
+    assert not bad, f"labels naming a rule that does not ship (valid: {sorted(shipped)}): {bad}"
+
+
+def test_held_out_labels_record_a_mitigation(corpus: dict) -> None:
+    """A mitigated path still counts as a miss, but it ranks lower, and the
+    ranking is only possible if the label says so. This is a fact about the
+    repo's own defences, not about the engine, so it is safe for a held-out
+    entry to carry - unlike the reason it was missed."""
+    missing = [
+        f"{r['name']}:{e['file']}:{e['line']}"
+        for r in corpus["repos"]
+        if r.get("split") == "held-out"
+        for e in (r.get("expect") or [])
+        if not e.get("mitigation")
+    ]
+    assert not missing, f"held-out labels must record the repo's mitigation (or 'none'): {missing}"
+
+
+def test_labelled_repos_pin_a_ref(corpus: dict) -> None:
+    """A label is a claim about a line at a commit. Tracking a default branch
+    means the next fetch can move the line under the label, turning a drift
+    into a silent mis-score."""
+    floating = [r["name"] for r in corpus["repos"] if (r.get("expect") or []) and not r.get("ref")]
+    assert not floating, f"these carry labels but track a moving ref: {floating}"
 
 
 def test_the_split_assignment_is_recorded(corpus: dict) -> None:
