@@ -13,10 +13,26 @@
 # Committed unchanged. Not re-rolled: a shuffle repeated until the distribution
 # looks better is an informed assignment.
 split_assignment:
+  # Batch 1: the 18 repos that carried no labels as of 2026-09-30.
   seed: 20260930
   method: sorted-then-seeded-shuffle, 2:1 toward held-out, committed unchanged
   assigned: 2026-09-30
   before_investigation: true
+  batches:
+    - batch: 1
+      seed: 20260930
+      held_out: 12
+      train: 6
+      assigned: 2026-09-30
+      yielded: 6 held-out paths in 4 repos (15 candidates, 9 cut on the criteria)
+    - batch: 2
+      seed: 20261001
+      held_out: 20
+      train: 4
+      assigned: 2026-09-30
+      before_investigation: true
+      reason: held-out recall 0.000 at n=6 cannot distinguish a poor engine from
+        an unlucky draw, so the set grows before any engine work
 
 # Phase 0 benchmark corpus.
 #
@@ -46,7 +62,7 @@ repos:
     # sanitizer in name only and Palisade downgrades rather than silences.
     # Recall counts a hit at any severity, so this scores as a true positive.
     expect:
-      - {file: src/vanna/base/base.py, line: 1998, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+      - {file: src/vanna/base/base.py, line: 1998, rule: PI-FRAMEWORK-EXEC, capability: exec, verdict: flag,
          code: "exec(plotly_code, globals(), ldict)"}
   - name: pandasai-cve
     url: https://github.com/sinaptik-ai/pandas-ai
@@ -60,7 +76,7 @@ repos:
     # taint cannot follow. Deleting this label would flatter the recall
     # number; leaving it keeps the gap visible until the engine closes it.
     expect:
-      - {file: pandasai/pipelines/chat/code_execution.py, line: 174, rule: PI-EXEC, verdict: flag,
+      - {file: pandasai/pipelines/chat/code_execution.py, line: 174, rule: PI-EXEC, capability: exec, verdict: flag,
          code: "exec(code, environment)"}
   - name: langflow-cve
     url: https://github.com/langflow-ai/langflow
@@ -86,7 +102,7 @@ repos:
     # as a false positive - the finding is correct, the release simply
     # still carries the pattern.
     expect:
-      - {file: src/vanna/base/base.py, line: 2088, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+      - {file: src/vanna/base/base.py, line: 2088, rule: PI-FRAMEWORK-EXEC, capability: exec, verdict: flag,
          code: "exec(plotly_code, globals(), ldict)"}
   # NOTE: pandas-ai has no post-CVE 2.4.x tag (the line ends at the
   # vulnerable v2.4.2), so there is no patched counterpart to pin here.
@@ -108,7 +124,7 @@ repos:
       # DIRECT: the agent toolset's bash tool writes model-chosen commands into a
       # persistent /bin/bash (no sandbox, no approval). Missed: writing to a
       # shell's stdin is not a modeled sink; tools dispatch via a registry.
-      - {file: src/anthropic/lib/tools/agent_toolset.py, line: 500, rule: PI-SHELL, verdict: flag,
+      - {file: src/anthropic/lib/tools/agent_toolset.py, line: 500, rule: PI-SHELL, capability: shell, verdict: flag,
          code: "await stdin.send(wrapped.encode())"}
   - {name: llm-cli,          url: https://github.com/simonw/llm,                    kind: clean, split: train}
   - {name: instructor,       url: https://github.com/jxnl/instructor,               kind: clean, split: held-out}
@@ -123,10 +139,10 @@ repos:
       # MITIGATED (default interpreter is a Deno/Pyodide sandbox; LocalInterpreter
       # is not): ProgramOfThought runs model-written code. Missed: a dspy Module
       # __call__ is not a recognized LLM call.
-      - {file: dspy/predict/program_of_thought.py, line: 188, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+      - {file: dspy/predict/program_of_thought.py, line: 188, rule: PI-FRAMEWORK-EXEC, capability: exec, verdict: flag,
          code: "result = interpreter.execute(code)"}
       # MITIGATED (same interpreter choice): RLM executes model-written code.
-      - {file: dspy/predict/rlm.py, line: 707, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+      - {file: dspy/predict/rlm.py, line: 707, rule: PI-FRAMEWORK-EXEC, capability: exec, verdict: flag,
          code: "return repl.execute(code, variables=dict(input_args))"}
   - {name: outlines,         url: https://github.com/dottxt-ai/outlines,            kind: clean, split: train}
   - name: crewai
@@ -138,7 +154,7 @@ repos:
     expect:
       # DIRECT: SnowflakeSearchTool runs the model's tool-call query as raw SQL,
       # unvalidated. Missed: tool-call arguments are not modeled as LLM output.
-      - {file: lib/crewai-tools/src/crewai_tools/tools/snowflake_search_tool/snowflake_search_tool.py, line: 216, rule: PI-SQL, verdict: flag,
+      - {file: lib/crewai-tools/src/crewai_tools/tools/snowflake_search_tool/snowflake_search_tool.py, line: 216, rule: PI-SQL, capability: sql, verdict: flag,
          code: "cursor.execute(query, timeout=timeout)"}
   - {name: langgraph,        url: https://github.com/langchain-ai/langgraph,        kind: clean, split: held-out}
   # ---- held-out, labelled 2026-09-30 ------------------------------------
@@ -150,10 +166,10 @@ repos:
     kind: audited
     split: held-out
     expect:
-      - {file: examples/pydantic_ai_examples/sql_gen.py, line: 129, rule: PI-SQL, verdict: flag,
+      - {file: examples/pydantic_ai_examples/sql_gen.py, line: 129, rule: PI-SQL, capability: sql, verdict: flag,
          mitigation: 'output validator requires the query to start with SELECT',
          code: 'await ctx.deps.conn.execute(f''EXPLAIN {output.sql_query}'')'}
-      - {file: examples/pydantic_ai_examples/data_analyst.py, line: 88, rule: PI-SQL, verdict: flag,
+      - {file: examples/pydantic_ai_examples/data_analyst.py, line: 88, rule: PI-SQL, capability: sql, verdict: flag,
          mitigation: 'none',
          code: 'result = duckdb.query_df(df=data, virtual_table_name=''dataset'', sql_query=sql)'}
   - {name: mem0,             url: https://github.com/mem0ai/mem0,                   kind: clean, split: held-out}
@@ -164,10 +180,10 @@ repos:
     kind: audited
     split: held-out
     expect:
-      - {file: examples/customer_service_streaming/src/swarm/engines/local_engine.py, line: 215, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+      - {file: examples/customer_service_streaming/src/swarm/engines/local_engine.py, line: 215, rule: PI-FRAMEWORK-EXEC, capability: exec, verdict: flag,
          mitigation: 'per-tool human_input confirmation, default off',
          code: 'spec.loader.exec_module(tool_module)'}
-      - {file: examples/customer_service_streaming/src/swarm/engines/assistants_engine.py, line: 198, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+      - {file: examples/customer_service_streaming/src/swarm/engines/assistants_engine.py, line: 198, rule: PI-FRAMEWORK-EXEC, capability: exec, verdict: flag,
          mitigation: 'none',
          code: 'spec.loader.exec_module(tool_module)'}
   - {name: chroma,           url: https://github.com/chroma-core/chroma,            kind: clean, split: held-out}
@@ -177,7 +193,7 @@ repos:
     kind: audited
     split: held-out
     expect:
-      - {file: litellm/llms/litellm_proxy/skills/sandbox_executor.py, line: 193, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+      - {file: litellm/llms/litellm_proxy/skills/sandbox_executor.py, line: 193, rule: PI-FRAMEWORK-EXEC, capability: exec, verdict: flag,
          mitigation: 'runs in a remote sandbox session',
          code: 'result: Final = session.run(wrapped_code)'}
   - {name: haystack,         url: https://github.com/deepset-ai/haystack,           kind: clean, split: held-out}
@@ -189,7 +205,7 @@ repos:
     kind: audited
     split: held-out
     expect:
-      - {file: examples/talk_to_marvin.py, line: 76, rule: PI-SHELL, verdict: flag,
+      - {file: examples/talk_to_marvin.py, line: 76, rule: PI-SHELL, capability: shell, verdict: flag,
          mitigation: 'single quotes in the model text are shell-escaped',
          code: 'os.system(f"say ''{result.replace('}
   - {name: semantic-kernel,  url: https://github.com/microsoft/semantic-kernel,     kind: clean, split: held-out}
@@ -203,7 +219,7 @@ repos:
       # DIRECT: SqlTool passes the model's sql_query to the driver; the only guard
       # is prompt text asking for SELECT. Missed: tool boundary, polymorphic
       # driver attributes, prompt_driver.run not recognized, 4+ hops.
-      - {file: griptape/drivers/sql/sql_driver.py, line: 37, rule: PI-SQL, verdict: flag,
+      - {file: griptape/drivers/sql/sql_driver.py, line: 37, rule: PI-SQL, capability: sql, verdict: flag,
          code: "results = con.execute(sqlalchemy.text(query))"}
   - name: autogen
     url: https://github.com/microsoft/autogen
@@ -215,9 +231,61 @@ repos:
       # MITIGATED (Docker executor by default, local fallback with a warning;
       # approval optional): CodeExecutorAgent runs model-written code blocks.
       # Missed: model_client.create not recognized; abstract executor method.
-      - {file: python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py, line: 718, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+      - {file: python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py, line: 718, rule: PI-FRAMEWORK-EXEC, capability: exec, verdict: flag,
          code: "result = await self._code_executor.execute_code_blocks(code_blocks"}
       # MITIGATED (executor-dependent): PythonCodeExecutionTool runs the model's
       # tool-call code. Missed: tool-call arguments are not modeled as LLM output.
-      - {file: python/packages/autogen-ext/src/autogen_ext/tools/code_execution/_code_execution.py, line: 83, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+      - {file: python/packages/autogen-ext/src/autogen_ext/tools/code_execution/_code_execution.py, line: 83, rule: PI-FRAMEWORK-EXEC, capability: exec, verdict: flag,
          code: "result = await self._executor.execute_code_blocks("}
+
+  # ---- batch 2: assigned 2026-09-30, UNREAD at assignment -----------------
+  #
+  # Why a second batch exists: held-out recall measured 0.000 over 6 paths.
+  # At n=6 that cannot tell "generalizes poorly" from "unlucky draw", so the
+  # set has to grow BEFORE any engine work, or the re-measurement that decides
+  # launch is noise. No engine change may be specified from a held-out miss.
+  #
+  # Assigned by seeded shuffle over sorted names, committed and pushed before a
+  # line of any of them was read:
+  #   rng = random.Random(20261001); order = sorted(names); rng.shuffle(order)
+  #   held_out, train = order[:20], order[20:]
+  #
+  # Weighted 20:4 toward held-out, harder than batch 1's 2:1. Train already
+  # carries 14 repos and 10 paths and needs nothing; the estimate needs the
+  # held-out half. A function of the existing split sizes, not of any repo's
+  # contents - none had been opened.
+  #
+  # Selection bias, disclosed: these are agent frameworks, code-interpreter
+  # agents and text-to-SQL projects, chosen by category and reputation because
+  # those categories tend to wire model output to a capability in their own
+  # code (labelling criterion 1). That biases toward repos containing paths,
+  # which is the point of growing the corpus. It does not bias toward paths
+  # Palisade would or would not find: nothing here was scanned, and the
+  # selection could not have been informed by what a scan says.
+  #
+  # ref is left unset so fetch.py records the resolved SHA in repos.lock.json;
+  # any repo that ends up carrying a label gets its ref pinned to that SHA.
+  - {name: agno,             url: https://github.com/agno-agi/agno,                           kind: clean, split: held-out}
+  - {name: autogpt,          url: https://github.com/Significant-Gravitas/AutoGPT,            kind: clean, split: held-out}
+  - {name: browser-use,      url: https://github.com/browser-use/browser-use,                 kind: clean, split: held-out}
+  - {name: camel,            url: https://github.com/camel-ai/camel,                          kind: clean, split: held-out}
+  - {name: db-gpt,           url: https://github.com/eosphoros-ai/DB-GPT,                     kind: clean, split: held-out}
+  - {name: e2b,              url: https://github.com/e2b-dev/e2b,                             kind: clean, split: held-out}
+  - {name: gorilla,          url: https://github.com/ShishirPatil/gorilla,                    kind: clean, split: held-out}
+  - {name: julep,            url: https://github.com/julep-ai/julep,                          kind: clean, split: train}
+  - {name: langchain,        url: https://github.com/langchain-ai/langchain,                  kind: clean, split: held-out}
+  - {name: langroid,         url: https://github.com/langroid/langroid,                       kind: clean, split: held-out}
+  - {name: lavague,          url: https://github.com/lavague-ai/LaVague,                      kind: clean, split: train}
+  - {name: letta,            url: https://github.com/letta-ai/letta,                          kind: clean, split: train}
+  - {name: llama-index,      url: https://github.com/run-llama/llama_index,                   kind: clean, split: held-out}
+  - {name: mcp-python-sdk,   url: https://github.com/modelcontextprotocol/python-sdk,         kind: clean, split: held-out}
+  - {name: metagpt,          url: https://github.com/geekan/MetaGPT,                          kind: clean, split: held-out}
+  - {name: open-interpreter, url: https://github.com/OpenInterpreter/open-interpreter,        kind: clean, split: held-out}
+  - {name: openai-agents,    url: https://github.com/openai/openai-agents-python,             kind: clean, split: train}
+  - {name: openhands,        url: https://github.com/All-Hands-AI/OpenHands,                  kind: clean, split: held-out}
+  - {name: qwen-agent,       url: https://github.com/QwenLM/Qwen-Agent,                       kind: clean, split: held-out}
+  - {name: smolagents,       url: https://github.com/huggingface/smolagents,                  kind: clean, split: held-out}
+  - {name: strands,          url: https://github.com/strands-agents/sdk-python,               kind: clean, split: held-out}
+  - {name: superagi,         url: https://github.com/TransformerOptimus/SuperAGI,             kind: clean, split: held-out}
+  - {name: swe-agent,        url: https://github.com/SWE-agent/SWE-agent,                     kind: clean, split: held-out}
+  - {name: taskweaver,       url: https://github.com/microsoft/TaskWeaver,                    kind: clean, split: held-out}

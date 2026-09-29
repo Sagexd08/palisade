@@ -100,12 +100,48 @@ class Metrics:
         return 2 * p * r / (p + r) if (p + r) else 0.0
 
 
+# What a sink DOES, which is readable off the sink line itself. Labels match on
+# this, not on a rule id.
+#
+# The distinction between PI-EXEC and PI-FRAMEWORK-EXEC is not in the sink at
+# all - both end in code execution - it is in the shape of the LLM call
+# upstream. So asking a labeller for a rule id asks them to know what each rule
+# models, which means opening the rule file, which is exactly the leak disclosed
+# in corpus/RECALL-PROTOCOL.md. Asking them what the sink does asks them to read
+# the line in front of them.
+#
+# It also removes a measurement artifact: a finding that traced the right path to
+# the right line used to score as a miss AND a false positive if it arrived under
+# the sibling rule id.
+RULE_CAPABILITY = {
+    "PI-SQL": "sql",
+    "PI-SHELL": "shell",
+    "PI-EXEC": "exec",
+    "PI-FRAMEWORK-EXEC": "exec",
+    "PI-HTTP": "http",
+    "PI-AGENT-HANDOFF": "handoff",
+}
+
+
+def _capability(rule_id: str) -> str:
+    """An unmapped rule falls back to its own id rather than to a wildcard, so a
+    newly shipped rule fails loudly instead of silently matching nothing."""
+    return RULE_CAPABILITY.get(rule_id, rule_id)
+
+
 def _expected(target: dict) -> set[tuple[str, int, str]]:
-    return {
-        (e["file"], int(e["line"]), e["rule"])
-        for e in target.get("expect", []) or []
-        if e.get("verdict", "flag") == "flag"
-    }
+    """Match keys for a target's labels: (file, line, capability).
+
+    `capability:` is what a new label carries. `rule:` is still honoured for the
+    labels written before the schema changed, mapped through the table above.
+    """
+    out = set()
+    for e in target.get("expect", []) or []:
+        if e.get("verdict", "flag") != "flag":
+            continue
+        cap = e.get("capability") or _capability(e["rule"])
+        out.add((e["file"], int(e["line"]), cap))
+    return out
 
 
 def score_fixtures(manifest: Path) -> tuple[Metrics, float]:
@@ -125,7 +161,7 @@ def score_fixtures(manifest: Path) -> tuple[Metrics, float]:
         else:
             m.challenged += 1
         expected = _expected(target)
-        got = {(f.sink.file, f.sink.line, f.rule_id) for f in res.findings}
+        got = {(f.sink.file, f.sink.line, _capability(f.rule_id)) for f in res.findings}
         for hit in sorted(got & expected):
             m.tp += 1
             m.detail.append(f"TP  {target['path']}  {hit}")
@@ -178,11 +214,15 @@ def score_repos(manifest: Path, triage: bool) -> tuple[Metrics, float]:
         # Palisade deliberately downgrades to MED (a denylist or an unverified
         # sanitizer on the path) is still a hit, not a miss. Vanna's
         # CVE-2024-5565 is exactly this case.
-        found = {(f.sink.file, f.sink.line, f.rule_id) for f in res.findings}
+        found = {(f.sink.file, f.sink.line, _capability(f.rule_id)) for f in res.findings}
         # Precision counts only HIGH against us: advisory rules like PI-HTTP
         # are reported but never gate a user's CI, so they must not be scored
         # as false positives here either.
-        high = {(f.sink.file, f.sink.line, f.rule_id) for f in res.findings if f.severity == "high"}
+        high = {
+            (f.sink.file, f.sink.line, _capability(f.rule_id))
+            for f in res.findings
+            if f.severity == "high"
+        }
         expected = _expected(entry)
         got = found
         kind = entry.get("kind", "clean")
@@ -217,7 +257,11 @@ def score_repos(manifest: Path, triage: bool) -> tuple[Metrics, float]:
             m.fp += 1
             m.detail.append(f"FP  {entry['name']:<16} ({kind}) unexpected {extra}")
             if triage:
-                f = next(x for x in res.findings if (x.sink.file, x.sink.line, x.rule_id) == extra)
+                f = next(
+                    x
+                    for x in res.findings
+                    if (x.sink.file, x.sink.line, _capability(x.rule_id)) == extra
+                )
                 m.detail.append(
                     f"      source: {f.source.snippet}  ({f.source.file}:{f.source.line})"
                 )

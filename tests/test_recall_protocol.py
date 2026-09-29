@@ -248,7 +248,7 @@ def test_every_label_names_a_shipped_rule(corpus: dict) -> None:
         f"{r['name']}:{e['file']}:{e['line']} -> {e['rule']}"
         for r in corpus["repos"]
         for e in (r.get("expect") or [])
-        if e["rule"] not in shipped
+        if e.get("rule") and e["rule"] not in shipped
     ]
     assert not bad, f"labels naming a rule that does not ship (valid: {sorted(shipped)}): {bad}"
 
@@ -392,3 +392,89 @@ def test_the_default_run_prints_a_count_not_coordinates(
     )
     mod.main()
     assert "app.py" in capsys.readouterr().out, "--held-out-detail must still show them"
+
+
+# ---------------------------------------------------------------------------
+# A labeller must never need to open a rule file
+# ---------------------------------------------------------------------------
+#
+# Validating rule ids was not enough, and confirming that was the point of
+# checking. PI-EXEC and PI-FRAMEWORK-EXEC share a sink category - both end in
+# code execution - and differ only in the shape of the LLM call upstream. So
+# "which id applies here?" could not be answered from the sink line, only from
+# the rule definition, and the vocabulary leak reopened on every new label.
+#
+# Labels now match on what the sink DOES. These tests are what keep that true.
+
+
+def test_every_label_declares_a_capability(corpus: dict) -> None:
+    allowed = {"sql", "shell", "exec", "http", "handoff"}
+    bad = [
+        f"{r['name']}:{e['file']}:{e['line']} -> {e.get('capability')!r}"
+        for r in corpus["repos"]
+        for e in (r.get("expect") or [])
+        if e.get("capability") not in allowed
+    ]
+    assert not bad, f"every label needs a `capability:` from {sorted(allowed)}: {bad}"
+
+
+def test_the_exec_siblings_share_one_capability() -> None:
+    """The load-bearing assertion.
+
+    If these two ever map to different capabilities, assigning a label means
+    deciding which one applies, which means reading their definitions, which is
+    the leak. They are one capability precisely so the question never reaches a
+    labeller.
+    """
+    mod = _precision_module()
+    assert mod.RULE_CAPABILITY["PI-EXEC"] == mod.RULE_CAPABILITY["PI-FRAMEWORK-EXEC"] == "exec"
+
+
+def test_every_shipped_rule_maps_to_a_capability() -> None:
+    """A new rule with no mapping falls back to its own id, so its findings can
+    never match a label written in capability terms - the labels would read as
+    misses forever. Shipping a rule has to mean updating the table."""
+    mod = _precision_module()
+    unmapped = sorted(_shipped_rule_ids() - set(mod.RULE_CAPABILITY))
+    assert not unmapped, f"these rules ship with no capability mapping: {unmapped}"
+
+
+def test_a_capability_only_label_scores(tmp_path: Path) -> None:
+    """The proof that `rule:` is no longer required of a labeller.
+
+    The label below names no rule at all. It must still be scored - as a miss
+    here, since nothing detects it - because a label that silently stopped
+    counting would be the worst possible failure: recall would rise by losing
+    its denominator.
+    """
+    mod = _precision_module()
+    repo = tmp_path / "repos" / "fake"
+    repo.mkdir(parents=True)
+    (repo / "app.py").write_text("def main():\n    q = input()\n    print(q)\n", encoding="utf-8")
+    manifest = tmp_path / "repos.yaml"
+    manifest.write_text(
+        "threshold: 0.90\n"
+        "repos:\n"
+        "  - name: fake\n"
+        "    url: https://example.invalid/fake\n"
+        "    ref: deadbeef\n"
+        "    kind: audited\n"
+        "    split: train\n"
+        "    expect:\n"
+        "      - {file: app.py, line: 3, capability: sql, verdict: flag,\n"
+        "         mitigation: 'none', code: 'print(q)'}\n",
+        encoding="utf-8",
+    )
+    m, _ = mod.score_repos(manifest, False)
+    assert m.fn == 1, f"a capability-only label was not scored at all: {m.detail}"
+
+
+def test_the_protocol_states_the_capability_rule() -> None:
+    """Specific strings, deliberately: asserting the word "capability" appears
+    passes on the phrase "dangerous capability", which the document used long
+    before any of this - a vacuous test that would have told nobody anything."""
+    text = PROTOCOL.read_text(encoding="utf-8")
+    assert "capability: sql" in text, "the schema block must show the new field"
+    assert "never a rule id" in text, "the rule has to be stated, not implied by an example"
+    for token in ("`sql`", "`shell`", "`exec`", "`http`", "`handoff`"):
+        assert token in text, f"the capability vocabulary is incomplete: {token} missing"

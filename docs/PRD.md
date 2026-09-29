@@ -15,7 +15,10 @@
   service of ours in the middle. The guardrail/safety-case generators and the
   runtime tier are the remaining v1/v3 gaps.
 - **Owner:** Arpan (founder). **Companion specs:** `typesafe-integration.md`
-  (technical design, reconciled against the code at 0.6.0),
+  (technical design, reconciled against the code at 0.6.0 - **internal, not
+  published**: it stays that way until the judgment layer has a calibration
+  number of its own, on the same rule that holds the site for the recall number.
+  Cited here for internal readers only),
   `ai-safety-engineer-role.md` (the role this product fills), `roadmap.md` (phase
   status), `judgment-layer.md` (the bring-your-own-endpoint setup), `connect.md`
   (the connected surfaces and exactly what each one sends).

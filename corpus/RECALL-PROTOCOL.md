@@ -55,9 +55,55 @@ be moved.
 The held-out set has to be built from **newly labelled paths only**, and each
 one has to be assigned to a split **before anyone scans the repo it lives in**.
 
+## Labelling criteria
+
+A candidate becomes a label only if all four hold. They are written out because
+the next pass may be a different session, and ground truth that shifts between
+batches is the same failure as fitting to the test set, arriving more slowly.
+
+### 1. The wiring is in this repo
+
+Untrusted text must reach the dangerous capability through code **in the repo
+being scanned**. Shipping a dangerous tool for an adopter to register is not
+enough: the wiring then lives in the adopter's repo, which is the thing Palisade
+would be pointed at.
+
+| Kept | Rejected |
+|---|---|
+| pydantic-ai `data_analyst.py` - the agent, the `@tool` registration and the DuckDB call are all in this repo | Semantic Kernel `http_plugin.py` - the plugin performs the request, but the model output reaches it only once an adopter registers it with a kernel |
+| litellm `sandbox_executor.py` - `acompletion` -> tool-call `arguments["code"]` -> sandbox run, every hop in-repo | Haystack `LinkContentFetcher` - a public fetch method with no in-repo path from any model output to it |
+| swarm `local_engine.py` - the planner's LLM call and the module load it drives are in the same file | swarm `core.py` - the dispatch is real, but every function it can reach is caller-supplied |
+
+The test is not "could this be exploited?" - it is "is the exploitable
+arrangement present here?" Flagging the rejected column would be a false
+positive against a framework doing its job, so a label there would encode a
+false positive as ground truth.
+
+### 2. One label per mechanism
+
+Sibling methods of one class are one mechanism at several sites. Labelling each
+inflates `n` while making the estimate worse: they move together, so one
+behaviour swings the number by 4/n.
+
+### 3. The sink is the earliest line at which the capability is exercised
+
+On model-derived data. Where a flow loads an attacker-named module and then
+calls into it, the label goes on the load.
+
+*Disclosed:* not score-neutral - it tends to pick the more recognisable of two
+adjacent lines. Fixed before measurement and applied where it costs.
+
+### 4. The bar does not move for the target
+
+The bar that turned 15 candidates into 6 is the bar. If a batch yields 9 real
+paths across 5 repos, the number is 9, and the response is to assign more
+repos - never to loosen criterion 1 once a number is in. That is the one-way
+door walked backwards, and it is the most tempting version of it, because
+loosening it would look like a methodology refinement rather than a retreat.
+
 ## Labelling schema
 
-Unchanged from what `scripts/precision.py` already reads, plus one field:
+Unchanged from what `scripts/precision.py` already reads, plus two fields:
 
 ```yaml
 - name: some-repo
@@ -69,10 +115,32 @@ Unchanged from what `scripts/precision.py` already reads, plus one field:
   expect:
     - file: src/pkg/tools.py
       line: 214
-      rule: PI-SQL
+      capability: sql      # sql | shell | exec | http | handoff   <- what the sink DOES
       verdict: flag        # `flag` counts toward recall; anything else is a note
+      mitigation: none     # the repo's own defences on this path, or `none`
       code: "cur.execute(sql)"   # the exact sink text at the pinned ref
 ```
+
+**A label names a capability, never a rule id.** This is the fix for the
+vocabulary leak disclosed below, and validating rule ids was not enough - a
+check confirmed it. `PI-EXEC` and `PI-FRAMEWORK-EXEC` share a sink category;
+they differ in the shape of the **LLM call upstream**, which is not visible
+anywhere near the sink line. Asking a labeller which one applies asks them to
+open a rule file. Asking what the sink does asks them to read the line in front
+of them:
+
+| The sink | capability |
+|---|---|
+| a query is executed | `sql` |
+| a shell command runs | `shell` |
+| code runs - in-process, in an interpreter, or in a sandbox | `exec` |
+| an outbound request is made to a URL | `http` |
+| control passes to another agent | `handoff` |
+
+`scripts/precision.py` maps rule ids onto these when scoring, so the engine's
+taxonomy stays the engine's business. It also removed a measurement artifact: a
+finding that traced the right path to the right line used to score as a miss
+**and** a false positive if it arrived under the sibling rule id.
 
 Rules for a label to count:
 
@@ -203,11 +271,19 @@ of which sink names are modelled is now held alongside six held-out labels, so
 the *sink-vocabulary* dimension of these six is no longer strictly blind. The
 taint-shape dimension is.
 
-The fix is mechanical, so the next pass does not repeat it:
-`tests/test_recall_protocol.py` now validates every `rule:` against the shipped
-rule ids. A labeller needs the id to be **valid**, never the patterns behind
-it, and the sink's capability category (SQL, shell, code execution, HTTP,
-handoff) is readable off the sink line itself.
+The first fix was to validate `rule:` ids against the shipped rules, on the
+theory that a labeller needs the id to be valid and nothing more. **That was
+not enough, and checking it is what showed so.** `PI-EXEC` and
+`PI-FRAMEWORK-EXEC` both end in code execution; what separates them is the shape
+of the LLM call upstream. A labeller staring at `session.run(code)` cannot tell
+which applies without reading the rule definitions - so the leak would have
+reopened on every label in every future batch.
+
+Labels therefore name a **capability**, not a rule (see the schema above), and
+`scripts/precision.py` maps rule ids onto capabilities at scoring time. Four
+tests hold this in place, the load-bearing one asserting that the two exec
+siblings share a single capability: the moment they differ, the question
+"which one?" reaches a labeller again.
 
 ## Targets, and the first pass against them
 
@@ -221,6 +297,13 @@ The target was not met, and was not padded to meet it. Of the 12 held-out
 repos, 8 produced nothing: several are thin API clients or a vector store with
 no text-generation call anywhere, and two agent frameworks dispatch only into
 tools their adopter supplies.
+
+**Batch 2 assigned 2026-09-30:** 24 further repos, 20 held-out / 4 train, seed
+`20261001`, frozen and pushed before any of them was opened. Weighted harder
+than batch 1 because train needs nothing and the estimate needs everything. At
+batch 1's observed yield (~0.5 paths per repo) this should carry held-out into
+the high teens; if it does not, the number is whatever it is and a third batch
+follows.
 
 Six paths is a weak estimate and every report of it must say so. Two ways to
 grow it honestly:
