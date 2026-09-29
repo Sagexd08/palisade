@@ -93,6 +93,63 @@ Rules for a label to count:
   evidence has been spent, retire those repos to `train` in one commit that
   says so. Recall is then re-measured on what remains held-out.
 
+## When one agent both labels and fixes
+
+The held-out set exists to neutralize a conflict of interest. If the same
+person (or agent) labels the held-out paths and then fixes the engine against
+them, that conflict is back inside one head, and the split protects nothing.
+
+Three rules stand in for a second person. They are not advice; two of them are
+tested.
+
+### 1. The freeze is a commit, not an intention
+
+The order is: **assign the split -> commit -> then look.**
+
+Assignment happens before the repo is investigated at all, not merely before it
+is scanned. If you read the source first, find a path, and think "this looks
+like something the engine would miss", the assignment you then make is
+informed - and an informed assignment is not a held-out set. Splits are
+therefore assigned by a recorded, seeded shuffle over repo names, committed on
+their own, and only then is anything read or scanned.
+
+If the split assignment and the first scan of a repo happen in one working
+session with no commit between them, the freeze is on the honour system.
+
+### 2. Held-out labels carry location, never diagnosis
+
+A held-out label may record `file`, `line`, `rule`, `verdict` and the exact
+`code` at the pinned ref. That is what the scorer matches and what the drift
+test checks.
+
+It may **not** record why the engine misses it. Not in a YAML comment, not in
+`docs/proof-scans.md`, not in a commit message, not in a PR description. The
+moment that sentence exists, it is the specification for the fix, and the path
+is training data.
+
+Compare the existing train labels, which are correctly verbose:
+
+```yaml
+# MITIGATED (Docker executor by default...): CodeExecutorAgent runs model code.
+# Missed: model_client.create not recognized; abstract executor method.
+```
+
+That second line is exactly what a held-out label must not have. **If you find
+yourself wanting to write down the cause of a held-out miss, that is the signal
+to stop.** Count it, name nothing, move on.
+
+`tests/test_recall_protocol.py` fails if a held-out entry's comments contain
+diagnosis-shaped language.
+
+### 3. Labelling and fixing are separate passes
+
+Label, freeze, commit. Then, in a later pass, fix the engine and measure
+against the frozen set.
+
+Interleaving them means seeing a held-out miss while still holding the freedom
+to relabel - at which point the wall between ground truth and the fix is gone,
+whatever anyone intended. Two passes, a commit between.
+
 ## Targets
 
 | | Now | Target |

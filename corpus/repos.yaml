@@ -1,3 +1,23 @@
+# Split assignment for the recall corpus. See corpus/RECALL-PROTOCOL.md.
+#
+# Assigned by a seeded shuffle over sorted repo names BEFORE any of these repos
+# was investigated or scanned, so the assignment cannot have been informed by
+# what was found in them. Weighted 2:1 toward held-out because train already
+# carried 8 repos and 10 paths while held-out carried none - a function of the
+# existing split sizes, not of these repos' contents.
+#
+# Reproduce:
+#   rng = random.Random(20260930); order = sorted(unlabelled); rng.shuffle(order)
+#   held_out, train = order[:12], order[12:]
+#
+# Committed unchanged. Not re-rolled: a shuffle repeated until the distribution
+# looks better is an informed assignment.
+split_assignment:
+  seed: 20260930
+  method: sorted-then-seeded-shuffle, 2:1 toward held-out, committed unchanged
+  assigned: 2026-09-30
+  before_investigation: true
+
 # Phase 0 benchmark corpus.
 #
 # Two halves, both load-bearing:
@@ -44,6 +64,7 @@ repos:
          code: "exec(code, environment)"}
   - name: langflow-cve
     url: https://github.com/langflow-ai/langflow
+    split: train
     ref: "1.2.0"
     kind: clean          # deliberately NOT scored as a CVE target
     cve: CVE-2025-3248
@@ -76,7 +97,7 @@ repos:
   # DIRECT = no sandbox or validation on the path; MITIGATED = sandboxed by
   # default. They stay in the precision half too: any HIGH elsewhere in them
   # is still a false positive.
-  - {name: openai-python,    url: https://github.com/openai/openai-python,          kind: clean}
+  - {name: openai-python,    url: https://github.com/openai/openai-python,          kind: clean, split: held-out}
   - name: anthropic-sdk
     url: https://github.com/anthropics/anthropic-sdk-python
     kind: audited
@@ -88,9 +109,9 @@ repos:
       # shell's stdin is not a modeled sink; tools dispatch via a registry.
       - {file: src/anthropic/lib/tools/agent_toolset.py, line: 500, rule: PI-SHELL, verdict: flag,
          code: "await stdin.send(wrapped.encode())"}
-  - {name: llm-cli,          url: https://github.com/simonw/llm,                    kind: clean}
-  - {name: instructor,       url: https://github.com/jxnl/instructor,               kind: clean}
-  - {name: guardrails,       url: https://github.com/guardrails-ai/guardrails,      kind: clean}
+  - {name: llm-cli,          url: https://github.com/simonw/llm,                    kind: clean, split: train}
+  - {name: instructor,       url: https://github.com/jxnl/instructor,               kind: clean, split: held-out}
+  - {name: guardrails,       url: https://github.com/guardrails-ai/guardrails,      kind: clean, split: held-out}
   - name: dspy
     url: https://github.com/stanfordnlp/dspy
     kind: audited
@@ -105,7 +126,7 @@ repos:
       # MITIGATED (same interpreter choice): RLM executes model-written code.
       - {file: dspy/predict/rlm.py, line: 707, rule: PI-FRAMEWORK-EXEC, verdict: flag,
          code: "return repl.execute(code, variables=dict(input_args))"}
-  - {name: outlines,         url: https://github.com/dottxt-ai/outlines,            kind: clean}
+  - {name: outlines,         url: https://github.com/dottxt-ai/outlines,            kind: clean, split: train}
   - name: crewai
     url: https://github.com/crewAIInc/crewAI
     kind: audited
@@ -116,18 +137,18 @@ repos:
       # unvalidated. Missed: tool-call arguments are not modeled as LLM output.
       - {file: lib/crewai-tools/src/crewai_tools/tools/snowflake_search_tool/snowflake_search_tool.py, line: 216, rule: PI-SQL, verdict: flag,
          code: "cursor.execute(query, timeout=timeout)"}
-  - {name: langgraph,        url: https://github.com/langchain-ai/langgraph,        kind: clean}
-  - {name: pydantic-ai,      url: https://github.com/pydantic/pydantic-ai,          kind: clean}
-  - {name: mem0,             url: https://github.com/mem0ai/mem0,                   kind: clean}
-  - {name: ollama-python,    url: https://github.com/ollama/ollama-python,          kind: clean}
-  - {name: swarm,            url: https://github.com/openai/swarm,                  kind: clean}
-  - {name: chroma,           url: https://github.com/chroma-core/chroma,            kind: clean}
-  - {name: litellm,          url: https://github.com/BerriAI/litellm,               kind: clean}
-  - {name: haystack,         url: https://github.com/deepset-ai/haystack,           kind: clean}
-  - {name: ragas,            url: https://github.com/explodinggradients/ragas,       kind: clean}
-  - {name: txtai,            url: https://github.com/neuml/txtai,                   kind: clean}
-  - {name: marvin,           url: https://github.com/PrefectHQ/marvin,              kind: clean}
-  - {name: semantic-kernel,  url: https://github.com/microsoft/semantic-kernel,     kind: clean}
+  - {name: langgraph,        url: https://github.com/langchain-ai/langgraph,        kind: clean, split: held-out}
+  - {name: pydantic-ai,      url: https://github.com/pydantic/pydantic-ai,          kind: clean, split: held-out}
+  - {name: mem0,             url: https://github.com/mem0ai/mem0,                   kind: clean, split: held-out}
+  - {name: ollama-python,    url: https://github.com/ollama/ollama-python,          kind: clean, split: train}
+  - {name: swarm,            url: https://github.com/openai/swarm,                  kind: clean, split: held-out}
+  - {name: chroma,           url: https://github.com/chroma-core/chroma,            kind: clean, split: held-out}
+  - {name: litellm,          url: https://github.com/BerriAI/litellm,               kind: clean, split: held-out}
+  - {name: haystack,         url: https://github.com/deepset-ai/haystack,           kind: clean, split: held-out}
+  - {name: ragas,            url: https://github.com/explodinggradients/ragas,       kind: clean, split: train}
+  - {name: txtai,            url: https://github.com/neuml/txtai,                   kind: clean, split: train}
+  - {name: marvin,           url: https://github.com/PrefectHQ/marvin,              kind: clean, split: held-out}
+  - {name: semantic-kernel,  url: https://github.com/microsoft/semantic-kernel,     kind: clean, split: held-out}
   - name: griptape
     url: https://github.com/griptape-ai/griptape
     kind: audited

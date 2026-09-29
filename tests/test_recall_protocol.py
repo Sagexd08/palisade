@@ -123,6 +123,103 @@ def test_the_existing_paths_are_all_train(corpus: dict) -> None:
     )
 
 
+def _repo_blocks(raw: str) -> dict[str, str]:
+    """Split the raw YAML into per-repo text blocks, comments included.
+
+    The parsed document is no use here: `yaml.safe_load` discards comments, and
+    the comments are exactly where a diagnosis would be written.
+    """
+    blocks: dict[str, str] = {}
+    name: str | None = None
+    buf: list[str] = []
+    for line in raw.splitlines():
+        if line.strip().startswith("- name:"):
+            if name:
+                blocks[name] = "\n".join(buf)
+            name = line.split("- name:", 1)[1].strip()
+            buf = [line]
+        elif name:
+            buf.append(line)
+    if name:
+        blocks[name] = "\n".join(buf)
+    return blocks
+
+
+# Words that only appear when someone is explaining a miss rather than locating
+# one. Deliberately narrow: this must not fire on a normal descriptive comment.
+_DIAGNOSIS_MARKERS = (
+    "missed:",
+    "not recognized",
+    "not recognised",
+    "not modeled",
+    "not modelled",
+    "why it is missed",
+    "engine misses",
+    "would need",
+)
+
+
+def test_held_out_labels_carry_no_diagnosis(corpus: dict) -> None:
+    """Rule 2 of the protocol, enforced.
+
+    A held-out label may say where a vulnerability is. The sentence explaining
+    why the engine misses it is the specification for the fix, so writing it
+    converts the path to training data. The existing train labels contain
+    exactly such sentences, which is correct for them and disqualifying for a
+    held-out entry.
+    """
+    raw = CORPUS.read_text(encoding="utf-8")
+    blocks = _repo_blocks(raw)
+    held = [r["name"] for r in corpus["repos"] if r.get("split") == "held-out"]
+
+    offenders: list[str] = []
+    for name in held:
+        text = blocks.get(name, "").lower()
+        hits = [m for m in _DIAGNOSIS_MARKERS if m in text]
+        if hits:
+            offenders.append(f"{name}: {hits}")
+    assert not offenders, (
+        "held-out labels must carry location, never diagnosis - that sentence "
+        "becomes the spec for the fix. Retire the path to `train` first, or "
+        f"delete the explanation: {offenders}"
+    )
+
+
+def test_the_diagnosis_detector_actually_fires(corpus: dict) -> None:
+    """Vacuity guard for the test above.
+
+    If `_DIAGNOSIS_MARKERS` matched nothing in this file, the held-out check
+    would pass no matter what anyone wrote. The train labels are known to
+    contain diagnoses, so at least one of them must trip the detector.
+    """
+    blocks = _repo_blocks(CORPUS.read_text(encoding="utf-8"))
+    train = [r["name"] for r in corpus["repos"] if r.get("split") == "train"]
+    tripped = [
+        name for name in train if any(m in blocks.get(name, "").lower() for m in _DIAGNOSIS_MARKERS)
+    ]
+    assert tripped, (
+        "no train label trips the diagnosis detector, so it would not catch a "
+        "held-out one either - the markers need widening"
+    )
+
+
+def test_the_split_assignment_is_recorded(corpus: dict) -> None:
+    """Rule 1: the assignment must be reproducible, not remembered.
+
+    A seeded shuffle recorded in the manifest is auditable after the fact; an
+    assignment someone made by hand while looking at the repos is not.
+    """
+    meta = corpus.get("split_assignment")
+    if not any(r.get("split") == "held-out" for r in corpus["repos"]):
+        pytest.skip("nothing is held out yet; nothing to audit")
+    assert meta, (
+        "repos.yaml must carry a `split_assignment:` block recording how the "
+        "held-out set was chosen (seed, method, date) - see RECALL-PROTOCOL.md"
+    )
+    for key in ("seed", "method", "assigned"):
+        assert key in meta, f"split_assignment is missing `{key}`"
+
+
 def test_an_unassigned_label_defaults_to_train() -> None:
     """A source-level check, deliberately, and worth saying why.
 
