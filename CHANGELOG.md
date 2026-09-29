@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.6.2 - 2026-09-30
+
+The policy the judgment layer routes on is now the customer's, not ours.
 
 ### Added
 
@@ -32,6 +34,30 @@
   rendering it as "read from .palisade/policy.yaml or ;". The same
   markup-eats-brackets bug 0.6.1 fixed for the `[js]` and `[judge]` install
   hints, caught this time by reading the help output rather than shipping it.
+- **The release dry run tested almost nothing it was for.** `download-artifact`
+  appears only in the tag-gated `publish` and `github-release` jobs, so
+  `workflow_dispatch` could never reach the cross-job artifact handoff - the
+  classic place an upload/download major-version bump breaks, and the reason
+  the dry run existed. A dry-run-only job now downloads both artifacts the way
+  the release jobs do and asserts the wheel, sdist and a parseable CycloneDX
+  SBOM survived. (`attest-build-provenance` stays tag-gated deliberately:
+  running it on a dispatch would write a real Sigstore transparency-log entry
+  for a build that is not a release. Its failure mode is already safe - a break
+  fails `build`, and `publish` needs `build`.)
+- **Build provenance named the wrong subjects.** `subject-path: dist/*` also
+  attested the `.gitignore` that `uv build` writes into `dist/`, so v0.6.0 and
+  v0.6.1 carry a provenance statement about a `.gitignore`. The wheel and sdist
+  digests were correct and both verify, so nothing shipped wrong; provenance now
+  names the two distributables explicitly.
+
+### Supply chain
+
+- Every GitHub Action bumped a major version or more (`checkout` v4 → v7.0.1,
+  `setup-uv` v5 → v10.1.0, `codeql-action` v3 → v4.38.1, `upload-artifact`
+  v4 → v7.0.1, `download-artifact` v4 → v8.0.1, `setup-node` v4 → v7.0.0,
+  `upload-pages-artifact` v3 → v5.0.0, `deploy-pages` v4 → v5.0.1,
+  `attest-build-provenance` v2 → v4.2.2). Each new pinned SHA was resolved
+  against the tag it claims in the upstream repository before merging.
 
 ## 0.6.1 - 2026-09-30
 
