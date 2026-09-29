@@ -19,6 +19,7 @@ repos:
     url: https://github.com/vanna-ai/vanna
     ref: v0.5.5
     kind: cve
+    split: train
     cve: CVE-2024-5565
     library_mode: true
     # Found. Lands at MED, not HIGH, because `_sanitize_plotly_code` is a
@@ -31,6 +32,7 @@ repos:
     url: https://github.com/sinaptik-ai/pandas-ai
     ref: v2.4.2
     kind: cve
+    split: train
     cve: CVE-2024-12366
     library_mode: true
     # MISSED, and scored as a miss on purpose. The exec sits behind pipeline
@@ -56,6 +58,7 @@ repos:
     url: https://github.com/vanna-ai/vanna
     ref: v0.7.9
     kind: patched
+    split: train
     library_mode: true
     # The same shape survives into v0.7.9 at base.py:2088, so this is not a
     # "fixed" counterpart. Labelled as expected so it scores as a hit, not
@@ -77,6 +80,7 @@ repos:
   - name: anthropic-sdk
     url: https://github.com/anthropics/anthropic-sdk-python
     kind: audited
+    split: train
     library_mode: true
     expect:
       # DIRECT: the agent toolset's bash tool writes model-chosen commands into a
@@ -90,6 +94,7 @@ repos:
   - name: dspy
     url: https://github.com/stanfordnlp/dspy
     kind: audited
+    split: train
     library_mode: true
     expect:
       # MITIGATED (default interpreter is a Deno/Pyodide sandbox; LocalInterpreter
@@ -104,6 +109,7 @@ repos:
   - name: crewai
     url: https://github.com/crewAIInc/crewAI
     kind: audited
+    split: train
     library_mode: true
     expect:
       # DIRECT: SnowflakeSearchTool runs the model's tool-call query as raw SQL,
@@ -125,6 +131,7 @@ repos:
   - name: griptape
     url: https://github.com/griptape-ai/griptape
     kind: audited
+    split: train
     library_mode: true
     expect:
       # DIRECT: SqlTool passes the model's sql_query to the driver; the only guard
@@ -135,6 +142,7 @@ repos:
   - name: autogen
     url: https://github.com/microsoft/autogen
     kind: audited
+    split: train
     library_mode: true
     expect:
       # MITIGATED (Docker executor by default, local fallback with a warning;

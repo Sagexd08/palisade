@@ -63,6 +63,25 @@ class Metrics:
     # published "N files" figure is reproducible from any CI run's output.
     files: int = 0
     challenged_files: int = 0
+    # Recall per split. Only the held-out number is publishable: a train path's
+    # miss has its diagnosis written down (docs/proof-scans.md), so the engine
+    # is fixed against that text and recall over it is fit by construction.
+    # See corpus/RECALL-PROTOCOL.md.
+    tp_by_split: dict[str, int] = field(default_factory=dict)
+    fn_by_split: dict[str, int] = field(default_factory=dict)
+    # Repos carrying at least one held-out label, for the n= in any report.
+    held_out_repos: set[str] = field(default_factory=set)
+
+    def recall_for(self, split: str) -> float | None:
+        """Recall over one split, or None when that split has no paths.
+
+        None, never 1.000: a split with nothing in it has not been measured,
+        and reporting a perfect score for an empty set is the same vacuity the
+        precision guard already refuses.
+        """
+        tp = self.tp_by_split.get(split, 0)
+        fn = self.fn_by_split.get(split, 0)
+        return tp / (tp + fn) if (tp + fn) else None
 
     @property
     def precision(self) -> float:
@@ -164,12 +183,21 @@ def score_repos(manifest: Path, triage: bool) -> tuple[Metrics, float]:
         expected = _expected(entry)
         got = found
         kind = entry.get("kind", "clean")
+        # Default `train`, because an unassigned label is one nobody committed
+        # to holding out - treating it as held-out would flatter the number.
+        split = str(entry.get("split", "train"))
+        if split == "held-out" and expected:
+            m.held_out_repos.add(entry["name"])
         for hit in sorted(got & expected):
             m.tp += 1
-            m.detail.append(f"TP  {entry['name']:<16} {hit}")
+            m.tp_by_split[split] = m.tp_by_split.get(split, 0) + 1
+            m.detail.append(f"TP  {entry['name']:<16} [{split}] {hit}")
         for miss in sorted(expected - got):
             m.fn += 1
-            m.detail.append(f"FN  {entry['name']:<16} expected {miss}, not found")
+            m.fn_by_split[split] = m.fn_by_split.get(split, 0) + 1
+            # A held-out miss is counted, never explained: the reason is the
+            # specification for the fix, so writing it retires the path.
+            m.detail.append(f"FN  {entry['name']:<16} [{split}] expected {miss}, not found")
         for extra in sorted(high - expected):
             m.fp += 1
             m.detail.append(f"FP  {entry['name']:<16} ({kind}) unexpected {extra}")
@@ -257,6 +285,27 @@ def main() -> int:
             f"\nfiles scanned: {m.files:,} ({m.challenged_files:,} in {m.challenged} "
             "challenged target(s))"
         )
+    # Recall, split out. Publishing the pooled number is how a corpus gets
+    # fitted to: every current label's miss is diagnosed in
+    # docs/proof-scans.md, so the engine is built against that text. Only the
+    # held-out half is evidence. corpus/RECALL-PROTOCOL.md has the rule.
+    train = m.recall_for("train")
+    held = m.recall_for("held-out")
+    if train is not None or held is not None:
+        print("\nrecall by split (only held-out is publishable):")
+        for label, value, key in (("train   ", train, "train"), ("held-out", held, "held-out")):
+            tp_s, fn_s = m.tp_by_split.get(key, 0), m.fn_by_split.get(key, 0)
+            if value is None:
+                print(f"  {label}  n/a      (no labelled paths in this split)")
+            else:
+                print(f"  {label}  {value:.3f}    (tp={tp_s} fn={fn_s})")
+        if held is None:
+            print(
+                "  note: nothing is held out, so there is no publishable recall "
+                "figure yet. See corpus/RECALL-PROTOCOL.md."
+            )
+        else:
+            print(f"  held-out repos: {len(m.held_out_repos)}")
     print(
         f"\nprecision={m.precision:.3f} recall={m.recall:.3f} f1={m.f1:.3f} "
         f"(tp={m.tp} fp={m.fp} fn={m.fn}; threshold={threshold})"
