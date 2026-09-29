@@ -171,7 +171,8 @@ scored by `scripts/precision.py`.
 | Repos | 26 |
 | Files scanned | 17,352 (re-measured on 0.5.1; 0.4.0 scanned 17,343) |
 | Precision | **1.000** (tp=2, fp=0) |
-| Recall | **0.200** (tp=2, fn=8; 10 hand-verified paths, 0.5.2) |
+| Recall (train) | **0.200** (tp=2, fn=8; 10 paths whose misses are documented below) |
+| Recall (held-out) | **0.000** (tp=0, fn=6; 6 paths in 4 repos, labelled 2026-09-30, never diagnosed before measurement) |
 | F1 | **0.333** |
 
 | Repo | Expected | Result |
@@ -183,13 +184,30 @@ scored by `scripts/precision.py`.
 | 5 audited repos (autogen, dspy, crewai, griptape, anthropic-sdk) | 7 hand-verified paths | **all missed** (4 sandboxed by default, 3 direct) |
 | 17 other clean repos | nothing | silent, zero false positives |
 
+**The held-out number is the honest one, and it is 0.000.** The table above and
+everything below it covers **train** paths only: their misses are explained in
+this file, so the engine is built against that text and recall over them is fit
+by construction. On 2026-09-30 a second set was labelled under
+`corpus/RECALL-PROTOCOL.md` - 6 paths in 4 repos, assigned to the held-out half
+by a seeded shuffle committed before anyone read the repos, and labelled with
+location and verbatim sink text only. Palisade found **0 of 6**.
+
+Two things that number does and does not mean. It does mean there is no
+evidence yet that the engine generalizes beyond the shapes it was built
+against. It does not mean recall is zero: at n=6, 0 hits is consistent with a
+true rate up to roughly 0.4, so this is a weak estimate and any report of it
+has to say so. Per the protocol, held-out misses are reported as a count with
+no repo names and no reasons - writing down the reason is what converts a
+held-out path into a training example, and `scripts/precision.py` suppresses
+their coordinates unless `--held-out-detail` is passed.
+
 **Misses are recorded, not hidden.** PandasAI's exec sits behind pipeline step
 objects dispatched dynamically at runtime, which bounded static taint cannot
 follow. A 2026-09-22 audit of the clean repos found 7 more real paths, every one
 verified at the pinned commit and labelled in `corpus/repos.yaml` with the
 exact sink code:
 
-| Repo | Path | Mitigation | Why it is missed |
+| Repo (train only) | Path | Mitigation | Why it is missed |
 |---|---|---|---|
 | anthropic-sdk | bash agent tool writes model commands to a persistent `/bin/bash` | none | writing to a shell's stdin is not a modeled sink; registry-dispatched tools |
 | crewai-tools | SnowflakeSearchTool runs the tool-call query as raw SQL | none | tool-call arguments are not modeled as model output |

@@ -317,3 +317,78 @@ def test_the_protocol_document_exists_and_states_the_rule() -> None:
     assert "never been diagnosed in writing" in text
     assert "held-out" in text and "train" in text
     assert "one-way door" in text.lower(), "the no-reassignment rule must be stated"
+
+
+# ---------------------------------------------------------------------------
+# A held-out miss is a count, not a to-do list
+# ---------------------------------------------------------------------------
+
+
+def _fake_corpus(tmp_path: Path, split: str) -> Path:
+    """A one-repo corpus whose single label is unreachable, so it scores as a
+    miss. `input()` mints an untrusted source, which keeps the scan challenged
+    (an unchallenged target fails for a different reason and would mask this)."""
+    repo = tmp_path / "repos" / "fake"
+    repo.mkdir(parents=True)
+    (repo / "app.py").write_text("def main():\n    q = input()\n    print(q)\n", encoding="utf-8")
+    manifest = tmp_path / "repos.yaml"
+    manifest.write_text(
+        "threshold: 0.90\n"
+        "repos:\n"
+        "  - name: fake\n"
+        "    url: https://example.invalid/fake\n"
+        "    ref: deadbeef\n"
+        "    kind: audited\n"
+        f"    split: {split}\n"
+        "    expect:\n"
+        "      - {file: app.py, line: 3, rule: PI-SQL, verdict: flag,\n"
+        "         mitigation: 'none', code: 'print(q)'}\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
+def test_a_held_out_miss_is_kept_out_of_the_default_detail(tmp_path: Path) -> None:
+    """Rule 2, mechanically.
+
+    `repo, file, line` for a held-out miss is a specification for the next
+    engine change. A run that prints it by default publishes that list into
+    every issue and commit message the output gets pasted into.
+    """
+    mod = _precision_module()
+    m, _ = mod.score_repos(_fake_corpus(tmp_path, "held-out"), False)
+    assert m.fn == 1, m.detail
+    assert m.held_out_detail, "the miss went missing entirely"
+    assert not [d for d in m.detail if d.startswith("FN")], (
+        f"a held-out miss reached the default detail: {m.detail}"
+    )
+    assert "app.py" in m.held_out_detail[0], "the coordinates must still exist behind the flag"
+
+
+def test_a_train_miss_stays_in_the_default_detail(tmp_path: Path) -> None:
+    """Vacuity guard for the test above: if every miss were suppressed, that
+    assertion would pass while the harness told nobody anything."""
+    mod = _precision_module()
+    m, _ = mod.score_repos(_fake_corpus(tmp_path, "train"), False)
+    assert m.fn == 1
+    assert not m.held_out_detail
+    assert [d for d in m.detail if d.startswith("FN") and "app.py" in d], m.detail
+
+
+def test_the_default_run_prints_a_count_not_coordinates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mod = _precision_module()
+    manifest = _fake_corpus(tmp_path, "held-out")
+    monkeypatch.setattr(sys, "argv", ["precision.py", str(manifest), "--repos"])
+    mod.main()
+    out = capsys.readouterr().out
+    assert "1 miss(es) across 1 repo(s)" in out
+    assert "coordinates suppressed" in out
+    assert "app.py" not in out, "the default run leaked a held-out coordinate"
+
+    monkeypatch.setattr(
+        sys, "argv", ["precision.py", str(manifest), "--repos", "--held-out-detail"]
+    )
+    mod.main()
+    assert "app.py" in capsys.readouterr().out, "--held-out-detail must still show them"

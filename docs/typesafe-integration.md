@@ -10,7 +10,8 @@
 > - **SEE (static, offline)** — `palisade-sec map`: inventory of the AI surface,
 >   6 artifact kinds (`semantic/inventory.py`).
 > - **DETECT (static, offline)** — `palisade-sec scan`: **6** deterministic taint
->   rules, precision 1.000 / recall 0.200 on the pinned corpus.
+>   rules, precision 1.000 / recall 0.200 (train) and **0.000 (held-out, n=6)**
+>   on the pinned corpus.
 > - **JUDGE (static, keyed)** — `palisade-sec audit`: **2 of ~9** checks —
 >   excessive agency (`semantic/audit.py`) and taint-path exploitability
 >   (`semantic/exploitability.py`). Both landed in v0.5.0.
@@ -113,8 +114,14 @@ calibration (**done for the 2 shipped checks; needs a case per new check**).
 
 ### The number this document should not bury [reconciled]
 
-The deterministic core measures **precision 1.000, recall 0.200** — of 10
-hand-verified injection paths in the pinned corpus it finds 2. Breadth (checks
+The deterministic core measures **precision 1.000, recall 0.200** on the train
+half — of 10 hand-verified injection paths in the pinned corpus it finds 2 — and
+**recall 0.000 on the held-out half**: of 6 paths labelled on 2026-09-30 under
+`corpus/RECALL-PROTOCOL.md`, split off before anyone read the repos and never
+diagnosed in writing, it finds none. The train number is fit by construction,
+because every one of its misses is explained in `docs/proof-scans.md`; the
+held-out number is the one this layer should be judged on, and at n=6 it is a
+weak estimate rather than proof that recall is zero. Breadth (checks
 3–9) widens the surface while that holds. The three named recall gaps at the top
 of `docs/roadmap.md` outrank new checks, and a fourth was found while triaging
 PR #17 (container entry points in agent graphs). "The AI Safety Engineer you
@@ -397,7 +404,8 @@ The original three next steps, as they actually stand:
 
 ### What this document says to do next
 
-In priority order, given recall 0.200 and 2 of ~9 checks:
+In priority order, given held-out recall 0.000 (n=6), train recall 0.200, and
+2 of ~9 checks:
 
 1. **Recall, not breadth.** The three named gaps in `docs/roadmap.md`, plus the
    agent-graph entry-point gap found in PR #17. Breadth on a detector that finds

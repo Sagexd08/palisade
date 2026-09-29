@@ -123,6 +123,16 @@ def test_doc_matches_whether_policy_files_load(doc: str) -> None:
 
 
 def test_doc_carries_the_recall_number(doc: str) -> None:
-    """The layer's honest weak point. A capability doc that lists 9 checks and
-    omits recall 0.200 oversells."""
+    """The layer's honest weak point, and there are now two numbers.
+
+    A capability doc that lists 9 checks and omits recall oversells. Quoting
+    only the train figure oversells in a subtler way: that half's misses are all
+    explained in docs/proof-scans.md, so the engine is built against them. The
+    held-out figure is the one a reader should judge the layer on, so the doc
+    has to carry it - with its n, because 0.000 over 6 paths is a weak estimate
+    and reads as a much stronger claim without the sample size.
+    """
     assert "recall 0.200" in doc or "precision 1.000, recall 0.200" in doc
+    assert "held-out" in doc, "the doc quotes only the train recall"
+    assert "0.000" in doc, "the held-out recall number is missing"
+    assert "n=6" in doc, "the held-out number must carry its sample size"

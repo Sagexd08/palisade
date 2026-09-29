@@ -290,7 +290,9 @@ Remaining open:
   `path_map`. The gate/FP hardening PRs turned out to be already shipped in
   0.5.1 and are closed.
 - **Recall is the honest gap, not breadth.** Precision is 1.000 with zero false
-  positives; recall is 0.200 (2 of 10 hand-verified paths in the pinned corpus).
+  positives; recall is 0.200 on the 10 documented train paths (2 of 10) and
+  0.000 on the 6 held-out paths labelled 2026-09-30 (n=6, the publishable
+  half - see corpus/RECALL-PROTOCOL.md).
   The three named engine gaps in `roadmap.md`, plus the agent-graph entry-point
   gap found in triage, outrank new check types.
 

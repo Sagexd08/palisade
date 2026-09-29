@@ -99,7 +99,8 @@ asserted, against a pinned benchmark corpus of 26 third-party repos
 | Metric | Value |
 |---|---|
 | Precision | **1.000** (tp=2, fp=0) |
-| Recall | **0.200** (tp=2, fn=8; 10 hand-verified paths) |
+| Recall (train) | **0.200** (tp=2, fn=8; 10 documented paths) |
+| Recall (held-out) | **0.000** (tp=0, fn=6; the publishable number, n=6) |
 | F1 | **0.333** |
 
 Zero false positives across 17,352 files of real third-party code. Two small
@@ -193,8 +194,13 @@ Directly serves the North Star metric: repos running Palisade in CI.
 version." Post-launch churn comes from coverage gaps; this phase also opens
 the community-rule flywheel - the moat.
 
-**First, the measured recall gaps** (recall is 0.200 on 10 hand-verified
-paths; each item below explains several of the 8 labelled misses):
+**First, the measured recall gaps** (train recall 0.200 on 10 documented
+paths; each item below explains several of the 8 labelled misses). These gaps
+are specified from the **train** half on purpose: its misses are already
+explained in `docs/proof-scans.md`, so building against them costs nothing that
+was not already spent. The held-out half - 6 paths, recall **0.000** - is what
+measures whether closing them generalizes, so nothing below may be specified
+from a held-out miss. See `corpus/RECALL-PROTOCOL.md`.
 
 - **Tool-call arguments as model output.** Arguments to a registered agent
   tool (`BaseTool._run`, autogen `BaseTool.run`, griptape activities,

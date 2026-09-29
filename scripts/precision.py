@@ -71,6 +71,9 @@ class Metrics:
     fn_by_split: dict[str, int] = field(default_factory=dict)
     # Repos carrying at least one held-out label, for the n= in any report.
     held_out_repos: set[str] = field(default_factory=set)
+    # Held-out miss lines, kept out of `detail` so the default run reports
+    # them as a count. See the comment at the append site.
+    held_out_detail: list[str] = field(default_factory=list)
 
     def recall_for(self, split: str) -> float | None:
         """Recall over one split, or None when that split has no paths.
@@ -197,7 +200,19 @@ def score_repos(manifest: Path, triage: bool) -> tuple[Metrics, float]:
             m.fn_by_split[split] = m.fn_by_split.get(split, 0) + 1
             # A held-out miss is counted, never explained: the reason is the
             # specification for the fix, so writing it retires the path.
-            m.detail.append(f"FN  {entry['name']:<16} [{split}] expected {miss}, not found")
+            #
+            # Which is why its coordinates do not go in the default output.
+            # Printing `repo, file, line` for a held-out miss is a to-do list
+            # for the next engine change - the temptation the split exists to
+            # remove - and a run whose output gets pasted into an issue or a
+            # commit message publishes it. `--held-out-detail` is there for
+            # when someone deliberately retires a path, which is the one time
+            # looking is allowed.
+            line = f"FN  {entry['name']:<16} [{split}] expected {miss}, not found"
+            if split == "held-out":
+                m.held_out_detail.append(line)
+            else:
+                m.detail.append(line)
         for extra in sorted(high - expected):
             m.fp += 1
             m.detail.append(f"FP  {entry['name']:<16} ({kind}) unexpected {extra}")
@@ -221,6 +236,11 @@ def main() -> int:
     ap.add_argument("manifest", type=Path)
     ap.add_argument("--repos", action="store_true", help="score the pinned third-party corpus")
     ap.add_argument("--triage", action="store_true", help="print the trace for each false positive")
+    ap.add_argument(
+        "--held-out-detail",
+        action="store_true",
+        help="print held-out misses with their coordinates (only when retiring a path)",
+    )
     args = ap.parse_args()
 
     m, threshold = (
@@ -228,6 +248,16 @@ def main() -> int:
     )
     for line in m.detail:
         print(line)
+    if m.held_out_detail:
+        if args.held_out_detail:
+            for line in m.held_out_detail:
+                print(line)
+        else:
+            print(
+                f"FN  [held-out] {len(m.held_out_detail)} miss(es) across "
+                f"{len(m.held_out_repos)} repo(s); coordinates suppressed "
+                "(--held-out-detail)"
+            )
 
     # A run that measured nothing must never report success. precision is
     # defined as 1.0 when tp+fp is 0, so an unlabelled corpus otherwise

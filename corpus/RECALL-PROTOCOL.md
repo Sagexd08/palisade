@@ -2,9 +2,15 @@
 
 Precision is measured across all 26 corpus repos - every HIGH finding that is
 not a recorded label counts against it, in an audited repo as much as in a
-clean one - and it has held at **1.000**. Recall has no equivalent discipline.
-It is currently **0.200** over **10 hand-verified paths in 8 repos**, all of
-them train, and the next engine work is aimed squarely at the 8 it misses.
+clean one - and it has held at **1.000**. Recall had no equivalent discipline.
+It was **0.200** over **10 hand-verified paths in 8 repos**, all of them train,
+and the next engine work is aimed squarely at the 8 it misses.
+
+**Measured under this protocol on 2026-09-30: held-out recall 0.000 (0 of 6,
+across 4 repos).** The first honest read of the engine's generalization, and it
+found nothing it had not been built for. At n=6 that is a weak estimate, not a
+demonstration that recall is zero - 0 hits out of 6 is consistent with a true
+rate near 0.4 - but it is the number, and it is the one to publish.
 
 That is the problem this document exists to prevent. Fixing the eight misses
 you can read in a table and then publishing the resulting recall is fitting to

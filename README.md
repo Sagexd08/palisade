@@ -90,9 +90,17 @@ tractable end of reducing catastrophic risk from autonomous AI.
 
 **Measured, not asserted.** Against a pinned benchmark corpus of 26
 third-party repos (17,352 files): **precision 1.000** - zero false positives.
-**Recall 0.200**: of 10 real prompt-injection paths hand-verified in that
-corpus, Palisade finds 2 (the Vanna CVE, in two releases). The 8 misses stay
-labelled rather than deleted. Four run in a sandbox by default; three reach
+Recall is reported in two halves, because only one of them is evidence.
+**Recall 0.200 (train)**: of 10 real prompt-injection paths hand-verified in
+that corpus, Palisade finds 2 (the Vanna CVE, in two releases) - but each of
+those misses is explained in `docs/proof-scans.md`, so the engine is built
+against that text and the number is fit by construction.
+**Recall 0.000 (held-out)**: of 6 further paths labelled under
+`corpus/RECALL-PROTOCOL.md` - assigned to the held-out half by a seeded
+shuffle committed before anyone read the repos, and recorded with location and
+verbatim sink text only - Palisade finds **none**. At n=6 that is a weak
+estimate rather than proof recall is zero, and it is the number to judge the
+engine on. The 8 train misses stay labelled rather than deleted. Four run in a sandbox by default; three reach
 raw SQL or a shell directly. They come down to three engine gaps on the
 roadmap: tool-call arguments as model output, more LLM call shapes (dspy
 modules, `model_client.create`), and method calls on objects the engine
