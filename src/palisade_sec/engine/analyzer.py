@@ -32,7 +32,13 @@ from palisade_sec.engine.taint import (
     union,
     with_partial,
 )
-from palisade_sec.rules.schema import Rule, match_any_strict, match_lenient, match_lenient_spec
+from palisade_sec.rules.schema import (
+    PatternSpec,
+    Rule,
+    match_any_strict,
+    match_lenient,
+    match_lenient_spec,
+)
 
 # Builtin conversions that constrain the value enough to kill string taint.
 _CAST_SANITIZERS = frozenset({"int", "float", "bool", "len", "abs", "hash", "ord", "round"})
@@ -975,9 +981,15 @@ class _Exec:
             return [tpath, short]
         return [f"{short}.{method}", f"{tpath}.{method}"]
 
-    def match_typed(self, path: str, specs) -> tuple[str, object] | None:
+    def match_typed(self, path: str, specs: list[PatternSpec]) -> tuple[str, PatternSpec] | None:
         """Match `specs` against the resolved-type paths, returning the path
-        that matched so the finding's trace names something real."""
+        that matched so the finding's trace names something real.
+
+        Typed rather than `object`: the caller assigns the result straight into
+        `sink_spec`, and an untyped return let that through unchecked - which
+        mypy caught and I had not, because I was running tests and `ruff check`
+        and calling that the gate set.
+        """
         for cand in self.typed_paths(path):
             spec = match_any_strict(cand, specs)
             if spec is not None:

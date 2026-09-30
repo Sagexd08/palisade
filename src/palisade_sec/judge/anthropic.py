@@ -37,7 +37,6 @@ _SYSTEM = (
 )
 
 
-
 def _why(resp: httpx.Response) -> str:
     """The provider's reason for a failure, and nothing else.
 
