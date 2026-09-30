@@ -478,3 +478,90 @@ def test_the_protocol_states_the_capability_rule() -> None:
     assert "never a rule id" in text, "the rule has to be stated, not implied by an example"
     for token in ("`sql`", "`shell`", "`exec`", "`http`", "`handoff`"):
         assert token in text, f"the capability vocabulary is incomplete: {token} missing"
+
+
+# ---------------------------------------------------------------------------
+# Correlated paths must not inflate n
+# ---------------------------------------------------------------------------
+
+
+def _grouped_corpus(tmp_path: Path, groups: list[str]) -> Path:
+    """One repo, three labels, with the given `group:` tags."""
+    repo = tmp_path / "repos" / "fake"
+    repo.mkdir(parents=True)
+    (repo / "app.py").write_text(
+        "def main():\n    q = input()\n    a = q\n    b = q\n    c = q\n", encoding="utf-8"
+    )
+    rows = "\n".join(
+        f"      - {{file: app.py, line: {line}, capability: exec, verdict: flag,\n"
+        f"         group: {g}, mitigation: 'none', code: '{var} = q'}}"
+        for line, g, var in zip((3, 4, 5), groups, "abc")
+    )
+    manifest = tmp_path / "repos.yaml"
+    manifest.write_text(
+        "threshold: 0.90\nrepos:\n  - name: fake\n"
+        "    url: https://example.invalid/fake\n    ref: deadbeef\n"
+        f"    kind: audited\n    split: held-out\n    expect:\n{rows}\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
+def test_paths_that_move_together_count_once(tmp_path: Path) -> None:
+    """Three labels reached the same way are one observation, not three.
+
+    The engine finds all three or none of them, so quoting n=3 claims more
+    evidence than the set holds. Batch 2 is agent frameworks and code
+    interpreters, where one planner can reach a capability several ways - the
+    shape most likely to inflate a held-out count.
+    """
+    mod = _precision_module()
+    m, _ = mod.score_repos(_grouped_corpus(tmp_path, ["a", "a", "a"]), False)
+    assert m.fn == 3, "path-level counting must still see all three"
+    rate, hits, total = m.group_recall_for("held-out")
+    assert (hits, total) == (0, 1), f"three correlated paths collapsed to {total} group(s)"
+    assert rate == 0.0
+
+
+def test_independent_paths_still_count_separately(tmp_path: Path) -> None:
+    """Vacuity guard: if grouping collapsed everything, the test above would
+    pass while the harness reported effective n=1 for any corpus."""
+    mod = _precision_module()
+    m, _ = mod.score_repos(_grouped_corpus(tmp_path, ["a", "b", "c"]), False)
+    _, _, total = m.group_recall_for("held-out")
+    assert total == 3, f"three independent paths must stay three groups, got {total}"
+
+
+def test_an_ungrouped_label_is_its_own_group(tmp_path: Path) -> None:
+    """The safe default. Defaulting to a shared group would silently shrink the
+    denominator, which raises recall - the direction that flatters."""
+    mod = _precision_module()
+    repo = tmp_path / "repos" / "fake"
+    repo.mkdir(parents=True)
+    (repo / "app.py").write_text("def main():\n    q = input()\n    a = q\n    b = q\n", "utf-8")
+    manifest = tmp_path / "repos.yaml"
+    manifest.write_text(
+        "threshold: 0.90\nrepos:\n  - name: fake\n"
+        "    url: https://example.invalid/fake\n    ref: deadbeef\n"
+        "    kind: audited\n    split: held-out\n    expect:\n"
+        "      - {file: app.py, line: 3, capability: exec, verdict: flag,\n"
+        "         mitigation: 'none', code: 'a = q'}\n"
+        "      - {file: app.py, line: 4, capability: exec, verdict: flag,\n"
+        "         mitigation: 'none', code: 'b = q'}\n",
+        encoding="utf-8",
+    )
+    m, _ = mod.score_repos(manifest, False)
+    _, _, total = m.group_recall_for("held-out")
+    assert total == 2, "labels with no `group:` must not share one"
+
+
+def test_a_group_is_found_when_any_of_its_paths_is(Metrics) -> None:
+    """A unit check, deliberately: the earlier draft of this test scanned the
+    real 50-repo corpus, which took minutes in a suite that runs in eight
+    seconds. A slow test gets skipped, and a skipped test guards nothing."""
+    m = Metrics()
+    m.groups_by_split = {"held-out": {("r", "a"): True, ("r", "b"): False, ("s", "a"): False}}
+    rate, hits, total = m.group_recall_for("held-out")
+    assert (hits, total) == (1, 3)
+    assert abs(rate - 1 / 3) < 1e-9
+    assert m.group_recall_for("train") is None, "an empty split reports None, never 1.000"

@@ -79,11 +79,24 @@ arrangement present here?" Flagging the rejected column would be a false
 positive against a framework doing its job, so a label there would encode a
 false positive as ground truth.
 
-### 2. One label per mechanism
+### 2. One label per mechanism, and correlated paths grouped
 
 Sibling methods of one class are one mechanism at several sites. Labelling each
 inflates `n` while making the estimate worse: they move together, so one
 behaviour swings the number by 4/n.
+
+Where several paths in one repo genuinely differ but still move together - a
+planner that reaches a capability three ways is found three times or not at all
+- they carry the same `group:` tag and the harness reports an **effective n**
+alongside the raw count. A held-out set of 18 paths where 12 are correlated is
+worth about 8 independent observations, and quoting 18 overstates the
+estimate's power by more than a factor of two.
+
+`group:` is an **opaque tag** - `a`, `b`, never "planner reaches exec via
+importlib". It records *that* two paths move together, never *how*, because how
+is the diagnosis. A label with no group is its own group: defaulting to a
+shared group would shrink the denominator, which raises recall, which is the
+direction that flatters.
 
 ### 3. The sink is the earliest line at which the capability is exercised
 
@@ -93,13 +106,20 @@ calls into it, the label goes on the load.
 *Disclosed:* not score-neutral - it tends to pick the more recognisable of two
 adjacent lines. Fixed before measurement and applied where it costs.
 
-### 4. The bar does not move for the target
+### 4. The bar does not move for the target (no test, by design)
 
 The bar that turned 15 candidates into 6 is the bar. If a batch yields 9 real
 paths across 5 repos, the number is 9, and the response is to assign more
 repos - never to loosen criterion 1 once a number is in. That is the one-way
 door walked backwards, and it is the most tempting version of it, because
 loosening it would look like a methodology refinement rather than a retreat.
+
+This one is prose and stays prose. The violation is a rationalization, not a
+state a test can read: by the time the criterion has been loosened, the corpus
+looks internally consistent and every label passes. Writing down which
+direction the pressure comes from is the whole of the enforcement available,
+and a test that pretended otherwise would be worse than none - it would license
+the belief that the rule is being watched.
 
 ## Labelling schema
 
@@ -141,6 +161,15 @@ of them:
 taxonomy stays the engine's business. It also removed a measurement artifact: a
 finding that traced the right path to the right line used to score as a miss
 **and** a false positive if it arrived under the sibling rule id.
+
+**The neutrality of that change is asserted at n=6, not proven.** Re-measuring
+after it gave the identical 0/6, which is consistent with "no artifact was
+present" and equally consistent with "an artifact was removed and a real miss
+appeared, netting to zero". At six paths those cannot be distinguished, and it
+does not matter for the published number because both readings leave it at
+0/6. **Owed work:** re-run the comparison once held-out is substantially
+larger, to confirm the capability mapping still does not flatter. Cheap, and
+the only way the claim stops resting on a small sample.
 
 Rules for a label to count:
 

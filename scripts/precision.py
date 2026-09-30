@@ -74,6 +74,11 @@ class Metrics:
     # Held-out miss lines, kept out of `detail` so the default run reports
     # them as a count. See the comment at the append site.
     held_out_detail: list[str] = field(default_factory=list)
+    # Correlated paths, grouped. Several labels in one repo that move together -
+    # a planner reaching exec three ways is found three times or not at all -
+    # are not independent samples, so a raw path count overstates how much
+    # evidence the set holds. `{split: {(repo, group): was_any_found}}`.
+    groups_by_split: dict[str, dict[tuple[str, str], bool]] = field(default_factory=dict)
 
     def recall_for(self, split: str) -> float | None:
         """Recall over one split, or None when that split has no paths.
@@ -85,6 +90,20 @@ class Metrics:
         tp = self.tp_by_split.get(split, 0)
         fn = self.fn_by_split.get(split, 0)
         return tp / (tp + fn) if (tp + fn) else None
+
+    def group_recall_for(self, split: str) -> tuple[float, int, int] | None:
+        """Recall over correlated groups, plus (hits, groups).
+
+        A group counts as found when any path in it was found. This is the
+        honest denominator: a held-out set of 18 paths where 12 move together is
+        worth about 8 independent observations, and quoting 18 overstates the
+        estimate's power by more than a factor of two.
+        """
+        groups = self.groups_by_split.get(split)
+        if not groups:
+            return None
+        hits = sum(1 for found in groups.values() if found)
+        return hits / len(groups), hits, len(groups)
 
     @property
     def precision(self) -> float:
@@ -141,6 +160,25 @@ def _expected(target: dict) -> set[tuple[str, int, str]]:
             continue
         cap = e.get("capability") or _capability(e["rule"])
         out.add((e["file"], int(e["line"]), cap))
+    return out
+
+
+def _expected_groups(target: dict) -> dict[tuple[str, int, str], tuple[str, str]]:
+    """Map each label's match key to its (repo, group) identity.
+
+    `group:` is an opaque tag, deliberately - `a`, `b`, not "planner reaches
+    exec via importlib". It records THAT two paths move together, never how,
+    because how is the diagnosis and writing it retires the path. A label with
+    no group is its own group.
+    """
+    name = str(target.get("name", target.get("path", "?")))
+    out = {}
+    for e in target.get("expect", []) or []:
+        if e.get("verdict", "flag") != "flag":
+            continue
+        cap = e.get("capability") or _capability(e["rule"])
+        key = (e["file"], int(e["line"]), cap)
+        out[key] = (name, str(e.get("group", f"{e['file']}:{e['line']}")))
     return out
 
 
@@ -231,6 +269,11 @@ def score_repos(manifest: Path, triage: bool) -> tuple[Metrics, float]:
         split = str(entry.get("split", "train"))
         if split == "held-out" and expected:
             m.held_out_repos.add(entry["name"])
+        groups = m.groups_by_split.setdefault(split, {})
+        for key, identity in _expected_groups(entry).items():
+            # `or` so one found path marks the whole group found, whatever
+            # order the keys arrive in.
+            groups[identity] = groups.get(identity, False) or (key in got)
         for hit in sorted(got & expected):
             m.tp += 1
             m.tp_by_split[split] = m.tp_by_split.get(split, 0) + 1
@@ -373,6 +416,16 @@ def main() -> int:
                 print(f"  {label}  n/a      (no labelled paths in this split)")
             else:
                 print(f"  {label}  {value:.3f}    (tp={tp_s} fn={fn_s})")
+                grouped = m.group_recall_for(key)
+                if grouped is not None:
+                    rate, hits, total = grouped
+                    if total != tp_s + fn_s:
+                        # Only worth printing when grouping actually changed the
+                        # denominator; otherwise it is the same number twice.
+                        print(
+                            f"            {rate:.3f}    ({hits}/{total} correlated "
+                            f"groups - effective n={total}, not {tp_s + fn_s})"
+                        )
         if held is None:
             print(
                 "  note: nothing is held out, so there is no publishable recall "

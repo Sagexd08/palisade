@@ -1,13 +1,33 @@
 {
-  "anthropic-sdk": {
+  "agno": {
     "ref": null,
+    "sha": "c0642f495cb9b7065ae3f666f466f1e0b2483418",
+    "url": "https://github.com/agno-agi/agno"
+  },
+  "anthropic-sdk": {
+    "ref": "7e5ca5c94126a6d7de159a169ff43eb9b1cac57f",
     "sha": "7e5ca5c94126a6d7de159a169ff43eb9b1cac57f",
     "url": "https://github.com/anthropics/anthropic-sdk-python"
   },
   "autogen": {
-    "ref": null,
+    "ref": "027ecf0a379bcc1d09956d46d12d44a3ad9cee14",
     "sha": "027ecf0a379bcc1d09956d46d12d44a3ad9cee14",
     "url": "https://github.com/microsoft/autogen"
+  },
+  "autogpt": {
+    "ref": null,
+    "sha": "c035ab1f91b8556f86e87be26dcaf31677f64ba5",
+    "url": "https://github.com/Significant-Gravitas/AutoGPT"
+  },
+  "browser-use": {
+    "ref": null,
+    "sha": "4cbe921673b48a488f5415d9159249afd12a625b",
+    "url": "https://github.com/browser-use/browser-use"
+  },
+  "camel": {
+    "ref": null,
+    "sha": "fc27907e31ea2074d6b65ceb121573c5fa1ab345",
+    "url": "https://github.com/camel-ai/camel"
   },
   "chroma": {
     "ref": null,
@@ -15,17 +35,32 @@
     "url": "https://github.com/chroma-core/chroma"
   },
   "crewai": {
-    "ref": null,
+    "ref": "2c24b95eae2b0270b2513f9e24c3f4e536a22f0d",
     "sha": "2c24b95eae2b0270b2513f9e24c3f4e536a22f0d",
     "url": "https://github.com/crewAIInc/crewAI"
   },
-  "dspy": {
+  "db-gpt": {
     "ref": null,
+    "sha": "d1d398eb7ab2b2b3c9dc53fa376594a3600a7458",
+    "url": "https://github.com/eosphoros-ai/DB-GPT"
+  },
+  "dspy": {
+    "ref": "bb8ba59c0c6d7c7337af3b14a18994eb8cee501b",
     "sha": "bb8ba59c0c6d7c7337af3b14a18994eb8cee501b",
     "url": "https://github.com/stanfordnlp/dspy"
   },
-  "griptape": {
+  "e2b": {
     "ref": null,
+    "sha": "d010c7fb8c0d610947c045e3bfdc7cad20515551",
+    "url": "https://github.com/e2b-dev/e2b"
+  },
+  "gorilla": {
+    "ref": null,
+    "sha": "6ea57973c7a6097fd7c5915698c54c17c5b1b6c8",
+    "url": "https://github.com/ShishirPatil/gorilla"
+  },
+  "griptape": {
+    "ref": "aa146655de8b94c64132d6a2141f629ddee2e2da",
     "sha": "aa146655de8b94c64132d6a2141f629ddee2e2da",
     "url": "https://github.com/griptape-ai/griptape"
   },
@@ -44,6 +79,16 @@
     "sha": "e12f8b49203b0c1f253d27c1e709d0a09b9fc5a8",
     "url": "https://github.com/jxnl/instructor"
   },
+  "julep": {
+    "ref": null,
+    "sha": "fc74d079a18c8124b2627ca4717f5a9c269267db",
+    "url": "https://github.com/julep-ai/julep"
+  },
+  "langchain": {
+    "ref": null,
+    "sha": "a9780cd3dd73135d21d7130b08711685f2700d51",
+    "url": "https://github.com/langchain-ai/langchain"
+  },
   "langflow-cve": {
     "ref": "1.2.0",
     "sha": "0134485d5d29e384ce6be42b9deef6b64ffe8f89",
@@ -54,10 +99,30 @@
     "sha": "230927fb3a9ac9b2893a30322b4dfea7cdea9a8f",
     "url": "https://github.com/langchain-ai/langgraph"
   },
-  "litellm": {
+  "langroid": {
     "ref": null,
+    "sha": "20aa8eb1a11ba8d590c04803517fbcf6878fe7ad",
+    "url": "https://github.com/langroid/langroid"
+  },
+  "lavague": {
+    "ref": null,
+    "sha": "9024bb832c40291cd012916757f27ef60469b22d",
+    "url": "https://github.com/lavague-ai/LaVague"
+  },
+  "letta": {
+    "ref": null,
+    "sha": "5bcdd177d70fa2b31a754cfcd801e77b2e1ab16a",
+    "url": "https://github.com/letta-ai/letta"
+  },
+  "litellm": {
+    "ref": "a8979fe05466346d78ab4573c8a61b53a4dd9cf6",
     "sha": "a8979fe05466346d78ab4573c8a61b53a4dd9cf6",
     "url": "https://github.com/BerriAI/litellm"
+  },
+  "llama-index": {
+    "ref": null,
+    "sha": "7e2c60a78ec27e8d146dfdd596778aea83c041d5",
+    "url": "https://github.com/run-llama/llama_index"
   },
   "llm-cli": {
     "ref": null,
@@ -65,24 +130,49 @@
     "url": "https://github.com/simonw/llm"
   },
   "marvin": {
-    "ref": null,
+    "ref": "98d5bfa31494daaad4667ac2b5623ea699a7f12c",
     "sha": "98d5bfa31494daaad4667ac2b5623ea699a7f12c",
     "url": "https://github.com/PrefectHQ/marvin"
+  },
+  "mcp-python-sdk": {
+    "ref": null,
+    "sha": "06d1d1e4d2106ef14a8c21d29e6cdafb39f66889",
+    "url": "https://github.com/modelcontextprotocol/python-sdk"
   },
   "mem0": {
     "ref": null,
     "sha": "b51f7692f002d4f8719dd5c0f23d4d129003757d",
     "url": "https://github.com/mem0ai/mem0"
   },
+  "metagpt": {
+    "ref": null,
+    "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+    "url": "https://github.com/geekan/MetaGPT"
+  },
   "ollama-python": {
     "ref": null,
     "sha": "b28b1e8a8cf5436d06805e5bb211904e9ff53ef9",
     "url": "https://github.com/ollama/ollama-python"
   },
+  "open-interpreter": {
+    "ref": null,
+    "sha": "dafe3c857d16c0727a5b4e8fc1330f49987a46dc",
+    "url": "https://github.com/OpenInterpreter/open-interpreter"
+  },
+  "openai-agents": {
+    "ref": null,
+    "sha": "e6c680672ca6e046cece455358e86412bcad7a60",
+    "url": "https://github.com/openai/openai-agents-python"
+  },
   "openai-python": {
     "ref": null,
     "sha": "98e1d24f4902ab58830adf0e2b6a729a5d5429b1",
     "url": "https://github.com/openai/openai-python"
+  },
+  "openhands": {
+    "ref": null,
+    "sha": "da8f701e0e8e9c25cf2a8065a0debd930107a765",
+    "url": "https://github.com/All-Hands-AI/OpenHands"
   },
   "outlines": {
     "ref": null,
@@ -95,9 +185,14 @@
     "url": "https://github.com/sinaptik-ai/pandas-ai"
   },
   "pydantic-ai": {
-    "ref": null,
+    "ref": "c92e9c1e1915d071969a46900ba898f014a286d9",
     "sha": "c92e9c1e1915d071969a46900ba898f014a286d9",
     "url": "https://github.com/pydantic/pydantic-ai"
+  },
+  "qwen-agent": {
+    "ref": null,
+    "sha": "31a4d36d123688581a9e9744427272b33ce940e0",
+    "url": "https://github.com/QwenLM/Qwen-Agent"
   },
   "ragas": {
     "ref": null,
@@ -109,10 +204,35 @@
     "sha": "ca40aa7226531d28a721d0ca0e451d0aaf86dafc",
     "url": "https://github.com/microsoft/semantic-kernel"
   },
-  "swarm": {
+  "smolagents": {
     "ref": null,
+    "sha": "227ef5e49ddd82339295939072f0223249aa8d38",
+    "url": "https://github.com/huggingface/smolagents"
+  },
+  "strands": {
+    "ref": null,
+    "sha": "a9a62d4e3ce0ce8401ec74f56deb55d005fca502",
+    "url": "https://github.com/strands-agents/sdk-python"
+  },
+  "superagi": {
+    "ref": null,
+    "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
+    "url": "https://github.com/TransformerOptimus/SuperAGI"
+  },
+  "swarm": {
+    "ref": "6af0b4caf37dca4526dfd98e9fbd8ce36e7eeb22",
     "sha": "6af0b4caf37dca4526dfd98e9fbd8ce36e7eeb22",
     "url": "https://github.com/openai/swarm"
+  },
+  "swe-agent": {
+    "ref": null,
+    "sha": "3ea751c087f32b16e039a2233dd6eefecef325d5",
+    "url": "https://github.com/SWE-agent/SWE-agent"
+  },
+  "taskweaver": {
+    "ref": null,
+    "sha": "d44ddef23f90059fb17999d3095db4240e98f955",
+    "url": "https://github.com/microsoft/TaskWeaver"
   },
   "txtai": {
     "ref": null,
