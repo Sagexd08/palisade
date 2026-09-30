@@ -62,11 +62,25 @@ def test_disconnecting_llm_clears_the_workspace_id() -> None:
     assert "LLM_WORKSPACE" in src, "disconnect llm must clear the workspace id too"
 
 
-def test_the_organization_key_error_names_the_fix() -> None:
-    """The provider's own message says what to do and our body excerpt cut it
-    in half. The advice has to come from us, not from a fragment."""
+def test_both_causes_of_a_400_get_named() -> None:
+    """A 400 here means either "this key needs a workspace" or "that workspace
+    id is wrong", and the response body distinguishes them only sometimes.
+
+    The second case arrived in testing as a bare `HTTP 400: Bad Request`, which
+    told the user nothing - the first version of this branch only fired when the
+    body happened to contain the word "workspace". Both causes now get a
+    concrete answer chosen by what was actually passed in.
+    """
     import inspect
 
     src = inspect.getsource(connect_cli._verify_llm)
-    assert "--workspace-id" in src, "the 400 branch must name the flag that fixes it"
-    assert "organization key" in src
+    assert "--workspace-id" in src, "the no-workspace case must name the flag that fixes it"
+    assert "organization" in src
+    assert "wrkspc_" in src, (
+        "the wrong-id case must show what an id looks like - a user who passed a "
+        "name or a placeholder cannot tell from `Bad Request`"
+    )
+    assert "if workspace_id:" in src, (
+        "the two causes must be distinguished by whether an id was supplied, not "
+        "by whether the provider's body happened to mention it"
+    )

@@ -206,11 +206,24 @@ def _verify_llm(
         # one-flag answer, and the provider's own message says so - but it is
         # long enough that the body excerpt can cut it mid-sentence, which is
         # how this was first hit. Name the fix rather than relay the fragment.
-        if provider == "anthropic" and exc.status == 400 and "workspace" in str(exc):
+        if provider == "anthropic" and exc.status == 400:
+            # A 400 here has two causes and the response body distinguishes them
+            # only sometimes - when it does not, a bare "HTTP 400: Bad Request"
+            # tells the user nothing at all. Both causes have a concrete answer,
+            # so name whichever one fits what was passed in.
+            if workspace_id:
+                raise typer.BadParameter(
+                    f"anthropic rejected the request ({exc}). The most likely cause is the "
+                    "workspace id: check it is the id and not a name or a placeholder - it "
+                    "looks like `wrkspc_...`, from the Anthropic Console under Settings -> "
+                    "Workspaces. A key created inside a workspace needs no --workspace-id "
+                    "at all."
+                ) from None
             raise typer.BadParameter(
-                "that key is an organization key, not scoped to a workspace, so it needs a "
-                "workspace id. Re-run with --workspace-id <id> (Anthropic Console -> "
-                "Settings -> Workspaces), or use a workspace-scoped key."
+                f"anthropic rejected the request ({exc}). If that key is an organization "
+                "key it is not scoped to a workspace and needs one: re-run with "
+                "--workspace-id <id> from the Anthropic Console under Settings -> "
+                "Workspaces, or use a key created inside a workspace, which needs no flag."
             ) from None
         raise typer.BadParameter(f"could not verify the key: {exc}") from None
     console.print("[dim]key verified[/dim]")
