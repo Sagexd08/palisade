@@ -132,7 +132,7 @@ def test_doc_carries_the_recall_number(doc: str) -> None:
     has to carry it - with its n, because 0.000 over 6 paths is a weak estimate
     and reads as a much stronger claim without the sample size.
     """
-    assert "recall 0.133" in doc, "the train recall figure is stale"
+    assert "recall 0.235" in doc, "the train recall figure is stale"
     assert "held-out" in doc, "the doc quotes only the train recall"
     assert "0.000" in doc, "the held-out recall number is missing"
     assert "45" in doc, (

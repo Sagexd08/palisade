@@ -293,7 +293,7 @@ Remaining open:
   `path_map`. The gate/FP hardening PRs turned out to be already shipped in
   0.5.1 and are closed.
 - **Recall is the honest gap, not breadth.** Precision is 1.000 with zero false
-  positives across 40,466 files; recall is 0.133 on the 15 documented train
+  positives across 40,466 files; recall is 0.235 on the 17 documented train
   paths and **0.000 on the held-out half** - 0 of 98 paths, 0 of 45 independent
   observations across 20 repos (see corpus/RECALL-PROTOCOL.md). The two numbers
   are published together always: perfect precision is free for a scanner that

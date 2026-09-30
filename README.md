@@ -99,7 +99,7 @@ Those two numbers belong together and this project will not print one without
 the other. A scanner that reports nothing has perfect precision for free; zero
 of 45 independent observations puts the 95% upper bound on recall near 0.07.
 What Palisade reliably catches today is the narrow Vanna/PandasAI shape it was
-built against - 2 of 15 documented train paths - not the tool-calling agent
+built against - 4 of 17 documented train paths - not the tool-calling agent
 frameworks most teams actually ship. `corpus/RECALL-PROTOCOL.md` explains how
 the held-out half is kept honest, and `docs/proof-scans.md` records every train
 miss rather than deleting it. Four run in a sandbox by default; three reach

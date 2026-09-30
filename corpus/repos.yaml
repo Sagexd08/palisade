@@ -154,8 +154,38 @@ repos:
     expect:
       # DIRECT: SnowflakeSearchTool runs the model's tool-call query as raw SQL,
       # unvalidated. Missed: tool-call arguments are not modeled as LLM output.
+      #
+      # NOTE ON STANDARD: this label predates the labelling criteria in
+      # corpus/RECALL-PROTOCOL.md and would NOT be labelled under them today -
+      # crewai-tools ships the tool but nothing in this repo wires it to an
+      # agent, so criterion 1 (the wiring is in this repo) fails. Kept and still
+      # scored: retiring it would raise train recall, which is the self-serving
+      # direction, and a number is not a reason to edit ground truth. Flagged so
+      # a reader does not take it for an example of the current standard.
       - {file: lib/crewai-tools/src/crewai_tools/tools/snowflake_search_tool/snowflake_search_tool.py, line: 216, rule: PI-SQL, capability: sql, verdict: flag,
          code: "cursor.execute(query, timeout=timeout)"}
+      # ADDED BY TRIAGE, 2026-09-30. Provenance recorded because it matters: the
+      # gap-1 engine fix reported the singlestore sink, the corpus had no label
+      # there, and it scored as a FALSE POSITIVE - precision 0.750, gate failed.
+      # Hand-verified: `_run(self, search_query)` hands the model's string
+      # straight to `cursor.execute`, and the tool's own docstring calls it "The
+      # SQL query to execute". The engine was right and the corpus was
+      # incomplete, which is exactly what `--triage` exists for.
+      #
+      # To avoid labelling only what the engine found, the whole family was read
+      # by hand. nl2sql qualifies and is labelled below whatever the engine does
+      # with it. db2_search_tool was excluded on the merits - its `query` param
+      # becomes an embedding vector, never statement text, and the SQL is built
+      # from validated identifiers with bound values. rag_tool was excluded: a
+      # vector search is not one of the five capabilities.
+      #
+      # Both new labels are TRAIN and can never serve as held-out evidence.
+      - {file: lib/crewai-tools/src/crewai_tools/tools/singlestore_search_tool/singlestore_search_tool.py, line: 399, capability: sql, verdict: flag,
+         mitigation: '_validate_query permits only SELECT and SHOW statements',
+         code: "cursor.execute(search_query)"}
+      - {file: lib/crewai-tools/src/crewai_tools/tools/nl2sql/nl2sql_tool.py, line: 486, capability: sql, verdict: flag,
+         mitigation: '_validate_query, plus an allow_dml gate on write statements',
+         code: "result = session.execute(text(sql_query), params or {})"}
   - {name: langgraph,        url: https://github.com/langchain-ai/langgraph,        kind: clean, split: held-out}
   # ---- held-out, labelled 2026-09-30 ------------------------------------
   # Location and verbatim sink text only, per corpus/RECALL-PROTOCOL.md §2.

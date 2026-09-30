@@ -168,7 +168,7 @@ scored by `scripts/precision.py`.
 | Repos | 50 |
 | Files scanned | 40,466 (50 repos; 40,382 in 47 challenged targets) |
 | Precision | **1.000** (tp=2, fp=0) |
-| Recall (train) | **0.133** (tp=2, fn=13; 15 documented paths, 10 per capability) |
+| Recall (train) | **0.235** (tp=4, fn=13; 17 documented paths, 10 per capability) |
 | Recall (held-out) | **0.000** (tp=0, fn=98; 45 independent observations in 20 repos) |
 | F1 | **0.333** |
 

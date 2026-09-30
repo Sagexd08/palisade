@@ -96,7 +96,7 @@ asserted, against a pinned benchmark corpus of 26 third-party repos
 | Metric | Value |
 |---|---|
 | Precision | **1.000** (tp=2, fp=0) |
-| Recall (train) | **0.133** (tp=2, fn=13; 15 documented paths) |
+| Recall (train) | **0.235** (tp=4, fn=13; 17 documented paths) |
 | Recall (held-out) | **0.000** (tp=0, fn=98; 0 of 45 independent observations) |
 | F1 | **0.333** |
 
@@ -191,7 +191,7 @@ Directly serves the North Star metric: repos running Palisade in CI.
 version." Post-launch churn comes from coverage gaps; this phase also opens
 the community-rule flywheel - the moat.
 
-**First, the measured recall gaps** (train recall 0.133 over 15 documented
+**First, the measured recall gaps** (train recall 0.235 over 17 documented
 paths). These gaps are specified from the **train** half on purpose: its misses
 are already explained in `docs/proof-scans.md`, so building against them costs
 nothing that was not already spent. The held-out half - 98 paths, 45
@@ -221,6 +221,39 @@ contains, which is exactly what a held-out set is for. Reading it as pass/fail
 on the gap work would be reading it on the wrong axis - and would create
 pressure to go looking at held-out misses for the next spec, which is the one
 thing that would destroy the measurement.
+
+### Measured 2026-09-30: the bottom row, not the middle one
+
+Both gaps closed. Train recall rose 0.133 -> 0.235. **Held-out moved 0/45 to
+0/45 - not a single path, under any of the three denominators.**
+
+So the answer is the sharpest available version of the fork: the shapes the
+documented train gaps describe are **not what held-out is made of**. The next
+piece of work is a rule family for the agent-framework shape - a framework's own
+code handing model-chosen arguments to a tool it ships, across an object
+boundary - and it is a larger piece of work than any number of gap closures.
+Two pieces of evidence point the same way:
+
+- `griptape` sql_driver.py:37 is still missed after gap 1, because the tool and
+  the sink are separated by `self.sql_driver.execute_query(query)`. That is the
+  third documented gap - method calls on objects - and it is the shape, not an
+  edge case.
+- dspy's two misses need the same thing: `self.code_generate(...)` is only an
+  LLM call because `code_generate` was assigned `dspy.ChainOfThought(...)` in
+  `__init__`. No call signature can see that.
+
+Attribute-type resolution across object boundaries is therefore the prerequisite
+for the whole class, and it should be specified and built as such rather than as
+a third gap in a list.
+
+**What the pass cost, recorded because it is the part that generalizes.** Gap 1
+also produced the project's first false positive in the corpus's history -
+precision 1.000 -> 0.750, gate failed - on `crewai` singlestore_search_tool.py.
+Triage showed the engine was right and the corpus was incomplete: an unlabelled
+sibling of an existing label, same shape, same directory. Two labels were added
+after reading the family by hand, one of which the engine finds and one of which
+it does not, so the correction cost a miss as well as gaining a hit. Precision
+is back to 1.000 over 40,466 files.
 
 ### The gaps, each specified from a train miss
 

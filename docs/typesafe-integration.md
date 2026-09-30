@@ -10,7 +10,7 @@
 > - **SEE (static, offline)** — `palisade-sec map`: inventory of the AI surface,
 >   6 artifact kinds (`semantic/inventory.py`).
 > - **DETECT (static, offline)** — `palisade-sec scan`: **6** deterministic taint
->   rules, precision 1.000 / recall 0.133 (train) and **0.000 (held-out, 0 of
+>   rules, precision 1.000 / recall 0.235 (train) and **0.000 (held-out, 0 of
 >   45 independent observations)** on the pinned corpus.
 > - **JUDGE (static, keyed)** — `palisade-sec audit`: **2 of ~9** checks —
 >   excessive agency (`semantic/audit.py`) and taint-path exploitability
@@ -114,8 +114,8 @@ calibration (**done for the 2 shipped checks; needs a case per new check**).
 
 ### The number this document should not bury [reconciled]
 
-The deterministic core measures **precision 1.000, recall 0.133** on the train
-half — of 15 hand-verified injection paths in the pinned corpus it finds 2 — and
+The deterministic core measures **precision 1.000, recall 0.235** on the train
+half — of 17 hand-verified injection paths in the pinned corpus it finds 4 — and
 **recall 0.000 on the held-out half**: of 98 paths labelled blind in 20 repos
 under `corpus/RECALL-PROTOCOL.md`, 45 of them independent once correlated paths
 collapse, it finds none. The train number is fit by construction, because every
@@ -408,7 +408,7 @@ The original three next steps, as they actually stand:
 ### What this document says to do next
 
 In priority order, given held-out recall 0.000 (0 of 45 independent
-observations), train recall 0.133, and 2 of ~9 checks:
+observations), train recall 0.235, and 2 of ~9 checks:
 
 1. **Recall, not breadth.** The three named gaps in `docs/roadmap.md`, plus the
    agent-graph entry-point gap found in PR #17. Breadth on a detector that finds
