@@ -243,6 +243,12 @@ class Module:
     functions: list[FuncDef] = field(default_factory=list)
     toplevel: FuncDef | None = None  # module-level statements as pseudo-func
     imports: dict[str, str] = field(default_factory=dict)  # alias -> dotted path
+    # class name -> {attribute: declared type path}. Populated from annotated
+    # class-body assignments (`driver: SqlDriver = field(...)`) and from
+    # annotated __init__ parameters. A declared type is the only way to know
+    # what an attribute holds when nothing in the class ever constructs it,
+    # which is the normal case for attrs/pydantic/dataclass models.
+    class_attr_types: dict[str, dict[str, str]] = field(default_factory=dict)
     # class name -> base-class dotted paths (alias-resolved), for
     # class-hierarchy method resolution.
     class_bases: dict[str, list[str]] = field(default_factory=dict)

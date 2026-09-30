@@ -83,6 +83,8 @@ class Engine:
         # class-hierarchy indexes: (stem, class) -> base names; name -> classes
         self.class_bases: dict[tuple[str, str], list[str]] = {}
         self.classes_by_name: dict[str, list[tuple[str, str]]] = {}
+        # (stem, class, attribute) -> the dotted path of the type it holds.
+        self.attr_types: dict[tuple[str, str, str], str] = {}
         for mod in modules:
             for fn in mod.functions:
                 self.registry[fn.qualname] = (fn, mod)
@@ -95,6 +97,27 @@ class Engine:
             for cls, bases in mod.class_bases.items():
                 self.class_bases[(mod.stem, cls)] = [b.split(".")[-1] for b in bases]
                 self.classes_by_name.setdefault(cls, []).append((mod.stem, cls))
+            # What each attribute holds, so a call ON that attribute can be
+            # followed. Declared types come from the frontend; constructed types
+            # are read here, from any method that assigns `self.x = T(...)`.
+            # Declared wins: an annotation is the author's statement of intent,
+            # while an assignment may be one of several branches.
+            for cls, attrs in mod.class_attr_types.items():
+                for attr, tpath in attrs.items():
+                    self.attr_types[(mod.stem, cls, attr)] = tpath
+            for fn in mod.functions:
+                if not fn.class_name:
+                    continue
+                for st in _walk_stmts(fn.body):
+                    if not isinstance(st, ir.Assign) or not isinstance(st.value, ir.Call):
+                        continue
+                    tpath = st.value.func_path
+                    if not tpath:
+                        continue
+                    for tgt in st.targets:
+                        if tgt.startswith("self.") and tgt.count(".") == 1:
+                            key = (mod.stem, fn.class_name, tgt[5:])
+                            self.attr_types.setdefault(key, tpath)
 
     def run(self) -> EngineResult:
         result = EngineResult()
@@ -236,6 +259,48 @@ class Engine:
         if len(impls) == 1:
             return impls[0]
         return stub_hit
+
+    def attr_type(self, stem: str, class_name: str, attr: str) -> str | None:
+        """The type held by `class_name.attr`, searching base classes too.
+
+        An attribute declared on a base and used by a subclass's method is the
+        ordinary case for framework code, so stopping at the class itself would
+        resolve almost nothing.
+        """
+        seen: set[tuple[str, str]] = set()
+        stack = [(stem, class_name)]
+        while stack:
+            key = stack.pop()
+            if key in seen:
+                continue
+            seen.add(key)
+            hit = self.attr_types.get((key[0], key[1], attr))
+            if hit:
+                return hit
+            for base_name in self.class_bases.get(key, []):
+                stack.extend(self.classes_by_name.get(base_name, []))
+        return None
+
+    def resolve_type_method(self, type_path: str, method: str):
+        """Resolve `<type>.<method>` through that type's class hierarchy.
+
+        An attribute's declared type is a class, so a call on it resolves the
+        way any method call resolves - through the class, then its bases. Flat
+        name matching is not enough: a framework's entry point is routinely a
+        template method on a base class, with only the hook overridden below.
+
+        Ambiguity yields None. When two classes share a name and both implement
+        the method, the engine does not know which one the attribute holds, and
+        guessing is how a taint path gets invented.
+        """
+        short = type_path.rsplit(".", 1)[-1]
+        hits = []
+        for stem, cls in self.classes_by_name.get(short, []):
+            hit = self.resolve_method(stem, cls, method)
+            if hit is not None:
+                hits.append(hit)
+        uniq = {(h[0].qualname, h[1].stem): h for h in hits}
+        return next(iter(uniq.values())) if len(uniq) == 1 else None
 
     def _inherits_from(self, stem: str, cls: str, ancestors: set[tuple[str, str]]) -> bool:
         seen: set[tuple[str, str]] = set()
@@ -413,6 +478,7 @@ class _RuleRun:
         pos_args: list[TaintSet],
         kw_args: dict[str, TaintSet],
         depth: int,
+        recv_type: str | None = None,
     ) -> TaintSet:
         if depth > self.engine.max_hops:
             self.truncated.add(fn.qualname)
@@ -426,14 +492,14 @@ class _RuleRun:
                 env[name] = bump_hops(ts)
         if fn.class_name:
             env.update(self.class_fields.get((mod.stem, fn.class_name), {}))
-        sig = (fn.qualname, tuple(env.get(p, EMPTY) for p in fn.params))
+        sig = (fn.qualname, recv_type, tuple(env.get(p, EMPTY) for p in fn.params))
         if sig in self.memo:
             return self.memo[sig]
         if sig in self.in_progress:
             return EMPTY  # recursion: cut the cycle
         self.in_progress.add(sig)
         try:
-            ret = _Exec(self, fn, mod, env, depth=depth).run()
+            ret = _Exec(self, fn, mod, env, depth=depth, recv_type=recv_type).run()
         finally:
             self.in_progress.discard(sig)
         self.memo[sig] = ret
@@ -494,6 +560,7 @@ class _Exec:
         mod: ir.Module,
         env: dict[str, TaintSet],
         depth: int,
+        recv_type: str | None = None,
     ):
         self.rr = rr
         self.rule = rr.rule
@@ -502,6 +569,17 @@ class _Exec:
         self.env = env
         self.depth = depth
         self.ret: TaintSet = EMPTY
+        # Locals assigned a constructor call, so a call on one of them can be
+        # resolved the same way a call on an attribute is. Populated as the body
+        # executes, which is also the order the reads happen in.
+        self.local_types: dict[str, str] = {}
+        # The type of the object this body is executing ON, when the call site
+        # knew it. A framework entry point is routinely a template method on an
+        # abstract base, and `self.hook()` inside it has as many
+        # implementations as there are subclasses - unresolvable in general,
+        # unambiguous here, because the attribute that got us in declared what
+        # it holds.
+        self.recv_type = recv_type
 
     def run(self) -> TaintSet:
         self.exec_block(self.fn.body)
@@ -516,6 +594,10 @@ class _Exec:
     def exec_stmt(self, s: ir.Stmt) -> None:
         if isinstance(s, ir.Assign):
             ts = self.eval(s.value) if s.value else EMPTY
+            if isinstance(s.value, ir.Call) and s.value.func_path:
+                for key in s.targets:
+                    if "." not in key and not key.startswith("+"):
+                        self.local_types[key] = s.value.func_path
             for key in s.targets:
                 if key.startswith("+"):
                     k = key[1:]
@@ -770,8 +852,18 @@ class _Exec:
             hit = PartialHit(pattern=par, file=c.loc.file, line=c.loc.line)
             return with_partial(all_args, hit)
 
-        # 5) LLM call sites: source-tainted input => LLM-tainted output
-        if match_any_strict(path, self.rule.llm_signatures):
+        # 5) LLM call sites: source-tainted input => LLM-tainted output.
+        #    Also matched through the resolved type, so a call on an attribute
+        #    holding an LLM object is an LLM call even though the call site
+        #    names only the attribute.
+        llm_hit = match_any_strict(path, self.rule.llm_signatures) is not None
+        llm_path = path
+        if not llm_hit:
+            typed = self.match_typed(path, self.rule.llm_signatures)
+            if typed is not None:
+                llm_hit, llm_path = True, typed[0]
+        if llm_hit:
+            path = llm_path
             out: set[Taint] = set()
             for t in all_args:
                 if t.kind == SOURCE:
@@ -800,6 +892,10 @@ class _Exec:
         #    that resolves to a real project function is followed instead -
         #    the true sink (or its absence) inside beats the name heuristic.
         sink_spec = match_any_strict(path, self.rule.sinks)
+        if sink_spec is None:
+            typed = self.match_typed(path, self.rule.sinks)
+            if typed is not None:
+                path, sink_spec = typed[0], typed[1]
         if sink_spec is not None and _sink_armed(c, sink_spec):
             target = self.engine_resolve(path)
             if target is None or _is_stub(target[0]):
@@ -831,14 +927,102 @@ class _Exec:
             fn, mod = callee
             if _is_stub(fn):
                 return all_args
-            return self.rr.call_function(fn, mod, arg_sets, kw_sets, self.depth + 1)
+            tm = self.typed_method(path)
+            next_recv = tm[0] if tm is not None else None
+            if next_recv is None and path.startswith("self.") and path.count(".") == 1:
+                next_recv = self.recv_type  # still the same object
+            return self.rr.call_function(
+                fn, mod, arg_sets, kw_sets, self.depth + 1, recv_type=next_recv
+            )
 
         # 9) unknown call: conservatively propagate argument taint
         #    (covers json.loads, .strip(), str(), custom helpers we can't see)
         return all_args
 
+    def typed_paths(self, path: str) -> list[str]:
+        """Paths this call could also be known by, once the object it is called
+        on is resolved to a type.
+
+        `self.<attr>.<method>` and `<local>.<method>` are opaque as written: the
+        dangerous call and the LLM call both live behind the attribute, and the
+        attribute's type is declared or constructed somewhere else entirely.
+        Resolving it yields the paths the rules and the function registry can
+        actually match.
+
+        Deliberately expressed in terms of "an attribute", "a local" and "a
+        type" - nothing here knows which attribute names or libraries exist. A
+        provider-specific name belongs in rule data, never in this traversal.
+        """
+        if "." not in path:
+            return []
+        head, _, rest = path.partition(".")
+        if head == "self":
+            attr, _, method = rest.partition(".")
+            if not attr:
+                return []
+            cls = self.fn.class_name
+            if not cls:
+                return []
+            tpath = self.rr.engine.attr_type(self.mod.stem, cls, attr)
+        else:
+            tpath = self.local_types.get(head)
+            method = rest
+        if not tpath:
+            return []
+        short = tpath.rsplit(".", 1)[-1]
+        if not method:
+            # the attribute is itself called: its type IS the call target
+            return [tpath, short]
+        return [f"{short}.{method}", f"{tpath}.{method}"]
+
+    def match_typed(self, path: str, specs) -> tuple[str, object] | None:
+        """Match `specs` against the resolved-type paths, returning the path
+        that matched so the finding's trace names something real."""
+        for cand in self.typed_paths(path):
+            spec = match_any_strict(cand, specs)
+            if spec is not None:
+                return cand, spec
+        return None
+
     def engine_resolve(self, path: str):
-        return self.rr.engine.resolve(path, self.mod, self.fn.class_name)
+        if self.recv_type and path.startswith("self.") and path.count(".") == 1:
+            hit = self.rr.engine.resolve_type_method(self.recv_type, path[5:])
+            if hit is not None:
+                return hit
+        hit = self.rr.engine.resolve(path, self.mod, self.fn.class_name)
+        if hit is not None:
+            return hit
+        tm = self.typed_method(path)
+        if tm is not None:
+            hit = self.rr.engine.resolve_type_method(*tm)
+            if hit is not None:
+                return hit
+        for cand in self.typed_paths(path):
+            hit = self.rr.engine.resolve(cand, self.mod, self.fn.class_name)
+            if hit is not None:
+                return hit
+        return None
+
+    def typed_method(self, path: str) -> tuple[str, str] | None:
+        """(resolved type path, method) for a call on an attribute or local."""
+        if "." not in path:
+            return None
+        head, _, rest = path.partition(".")
+        if head == "self":
+            attr, _, method = rest.partition(".")
+            if not attr or not method or not self.fn.class_name:
+                return None
+            tpath = self.rr.engine.attr_type(self.mod.stem, self.fn.class_name, attr)
+        else:
+            tpath, method = self.local_types.get(head), rest
+        # No guard against a multi-segment `method` here: a mutation showed one
+        # was unobservable, because `resolve_method` is keyed on single method
+        # names and a dotted string simply never matches. Left simple rather
+        # than defended, so the next reader is not looking for the case it
+        # protects against.
+        if not tpath or not method:
+            return None
+        return tpath, method
 
 
 def _matched(path: str, pattern: str) -> bool:

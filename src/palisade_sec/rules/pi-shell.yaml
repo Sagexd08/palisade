@@ -81,6 +81,13 @@ llm_signatures:
       - "_model_client.create_stream"
       - "prompt_driver.run"
       - "messages.stream"
+      # Constructed LLM objects, matched through the resolved type of the
+      # attribute or local that holds them (dspy assigns these in __init__ and
+      # calls them later). Rule DATA may name a provider; the resolution logic
+      # that reaches them names nothing.
+      - "dspy.ChainOfThought"
+      - "dspy.Predict"
+      - "dspy.ReAct"
 sinks:
   - kind: call
     patterns:

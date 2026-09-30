@@ -65,6 +65,7 @@ class _Lowerer:
         self.aliases: dict[str, str] = {}
         self.functions: list[ir.FuncDef] = []
         self.class_bases: dict[str, list[str]] = {}
+        self.class_attr_types: dict[str, dict[str, str]] = {}
 
     # -- helpers ----------------------------------------------------------
 
@@ -76,6 +77,76 @@ class _Lowerer:
         return ir.Loc(
             file=self.rel_path, line=line, col=getattr(node, "col_offset", 0), snippet=snippet
         )
+
+    def _collect_attr_types(self, node: ast.ClassDef) -> None:
+        """Record what type each attribute of `node` is declared to hold.
+
+        Two sources, both annotations rather than assignments, because a model
+        class typically never constructs its own collaborators:
+
+          driver: SqlDriver = field(...)        # class body
+          def __init__(self, driver: SqlDriver) # and self.driver = driver
+
+        A subscripted annotation (`list[Tool]`, `Optional[Driver]`) is reduced
+        to its base path; `str`/`int`/`bool` and friends are skipped, since a
+        builtin can hold no method worth resolving.
+        """
+        types: dict[str, str] = self.class_attr_types.setdefault(node.name, {})
+        for item in node.body:
+            if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+                if path := self._annotation_path(item.annotation):
+                    types[item.target.id] = path
+            elif isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if item.name != "__init__":
+                    continue
+                args = item.args
+                annotated = {
+                    a.arg: p
+                    for a in list(args.args) + list(args.kwonlyargs)
+                    if a.annotation is not None and (p := self._annotation_path(a.annotation))
+                }
+                # only for a param the constructor actually stores on self
+                for st in ast.walk(item):
+                    if not isinstance(st, ast.Assign) or not isinstance(st.value, ast.Name):
+                        continue
+                    hit = annotated.get(st.value.id)
+                    if not hit:
+                        continue
+                    for tgt in st.targets:
+                        if (
+                            isinstance(tgt, ast.Attribute)
+                            and isinstance(tgt.value, ast.Name)
+                            and tgt.value.id == "self"
+                        ):
+                            types[tgt.attr] = hit
+        if not types:
+            self.class_attr_types.pop(node.name, None)
+
+    # Builtins cannot own a method the engine could resolve, and treating them
+    # as types would put noise in every attribute map.
+    _NOT_A_TYPE = frozenset(
+        {"str", "int", "float", "bool", "bytes", "None", "Any", "object", "dict", "list", "set"}
+    )
+
+    def _annotation_path(self, node: ast.AST) -> str:
+        """The base dotted path of an annotation, or "" when it is not usable."""
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            # a string annotation, as `from __future__ import annotations` makes
+            # every annotation at runtime
+            head = node.value.split("[", 1)[0].strip()
+            base = head.rsplit("|", 1)[0].strip() if "|" in head else head
+            return "" if base in self._NOT_A_TYPE else base
+        if isinstance(node, ast.Subscript):
+            return self._annotation_path(node.slice) or self._annotation_path(node.value)
+        if isinstance(node, ast.BinOp):  # `Driver | None`
+            return self._annotation_path(node.left) or self._annotation_path(node.right)
+        if isinstance(node, ast.Tuple):
+            for el in node.elts:
+                if p := self._annotation_path(el):
+                    return p
+            return ""
+        path = self.dotted_path(node)
+        return "" if path.split(".")[-1] in self._NOT_A_TYPE else path
 
     def dotted_path(self, node: ast.AST) -> str:
         """Dotted path of a Name/Attribute chain, alias-resolved. "" if not one."""
@@ -127,6 +198,7 @@ class _Lowerer:
                 self.collect_function(node, class_name=None, prefix=self.stem)
             elif isinstance(node, ast.ClassDef):
                 self.class_bases[node.name] = [p for b in node.bases if (p := self.dotted_path(b))]
+                self._collect_attr_types(node)
                 for item in node.body:
                     if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         self.collect_function(
@@ -152,6 +224,7 @@ class _Lowerer:
             toplevel=toplevel,
             imports=dict(self.aliases),
             class_bases=dict(self.class_bases),
+            class_attr_types={k: dict(v) for k, v in self.class_attr_types.items()},
         )
 
     def collect_function(
@@ -172,6 +245,7 @@ class _Lowerer:
                 self.class_bases[child.name] = [
                     p for b in child.bases if (p := self.dotted_path(b))
                 ]
+                self._collect_attr_types(child)
                 for item in child.body:
                     if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         self.collect_function(
