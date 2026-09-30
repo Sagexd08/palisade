@@ -57,6 +57,26 @@ that reports nothing has perfect precision for free.
 
 ### Fixed
 
+- **`audit` did not work against its own default backend.** The Anthropic
+  backend sent `"temperature": 0`, which current Claude models reject with
+  HTTP 400, while `connect llm` reported the key as verified because the probe
+  does not send it. Found by running the release checklist on a real key;
+  no local test could have caught it, because 493 of them passed with the bug
+  in place. The same shape as the `pr --dry-run` false green, arriving through
+  the request body instead of the headers.
+- **Organization-scoped Anthropic keys are supported** (`connect llm
+  --workspace-id`, `ANTHROPIC_WORKSPACE_ID`). The required
+  `anthropic-workspace-id` header was missing from both the probe and the
+  backend, so `--no-verify` was no escape either.
+- **Provider failures carry the provider's reason.** `HTTP 400: Bad Request`
+  and `Anthropic returned HTTP 400.` told a user nothing. Both paths now name
+  the cause - and, on the connect probe, name the flag that fixes it - while
+  still refusing to print the raw response body, which can echo the scanned
+  code.
+- **The test suite no longer reads the developer's keychain.** Connecting a
+  real provider broke 8 tests, because the judge config merges stored settings:
+  green in CI, which has no keychain, and red on any machine with a connected
+  key. `conftest` already refused to read a real `.env` for this exact reason.
 - Three real vulnerabilities in the corpus that our own audit had missed - two
   `crewai` tools, found by triaging a false positive that turned out to be the
   engine being right and the ground truth incomplete. Recorded with their
