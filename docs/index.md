@@ -1,15 +1,28 @@
 # Palisade documentation
 
-> Rendered and searchable at **https://arpankernel.github.io/palisade/docs/** - this directory is the source.
+> Rendered and searchable at **https://try.arpankernel.com/docs/** - this directory is the source.
 
-**Palisade is applied agentic-safety infrastructure**: it instruments the
-boundary where AI systems take real-world actions, statically detecting the
-untrusted-input → LLM → dangerous-sink paths that are the near-term, tractable
-shape of loss-of-control risk - in Python and JavaScript/TypeScript, in CI,
-before they ship. It is the applied arm of a long-horizon program to reduce
-catastrophic risk from autonomous AI (agentic safety, evals, safety cases,
-oversight, governance - at the application layer), not frontier alignment
-research.
+**We are building the AI safety engineer for your codebase.** The complete role
+is the destination; one verb of it ships today.
+
+**v1, live now:** a precise static detector for prompt-injection-to-execution
+paths - untrusted input reaches a model, and the model's output reaches `exec`,
+a shell, raw SQL, a model-chosen URL, or a dangerous tool across an agent
+handoff. Python and JavaScript/TypeScript, in CI, with no API key and no
+network calls.
+
+**Measured in both directions, and never one without the other:** precision
+**1.000** (zero false positives across 40,466 files in 50 repos) and held-out
+recall **0.000** (0 of 45 independent observations in 20 repos). Ground-truth
+denominators are known-incomplete, so that recall figure is, if anything, an
+overestimate. Palisade **does not yet catch tool-calling agent frameworks** -
+the shape where a framework hands model-chosen arguments to a tool it ships
+across an object boundary. That limit is measured, documented, and named on the
+roadmap as the next capability.
+
+The rest of the role - probing the system adversarially, generating guardrails
+and safety cases, watching production - is upcoming, marked as such, with no
+dates.
 
 ```
 untrusted input  →  LLM  →  exec / shell / raw SQL / URL fetch   (no sanitizer)   ⇒  finding

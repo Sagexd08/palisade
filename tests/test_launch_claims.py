@@ -29,12 +29,17 @@ SURFACES = [
     "README.md",
     "llms.txt",
     "website/index.html",
+    "website/roadmap.html",
     "docs/PRD.md",
     "docs/roadmap.md",
     "docs/proof-scans.md",
     "docs/typesafe-integration.md",
     "docs-site/src/content/docs/roadmap.md",
     "docs-site/src/content/docs/proof-scans.md",
+    # The docs site's own tagline and meta description. Not prose, but it is
+    # the first line a reader and a search engine see, and it carried a retired
+    # framing for a full release after every .md file had been corrected.
+    "docs-site/astro.config.mjs",
 ]
 
 # The precision claim in any of the spellings the surfaces actually use.
@@ -139,6 +144,14 @@ def test_the_judged_layer_is_labelled_advisory_and_uncalibrated(rel: str) -> Non
     path = ROOT / rel
     if not path.is_file():
         pytest.skip(f"{rel} not present")
+    if path.suffix in {".mjs", ".js", ".json", ".toml", ".yaml", ".yml"}:
+        # Config, not prose. The docs site's sidebar has a link reading
+        # "Judgment layer" and a link is not a description - the page it points
+        # at carries the caveat, and demanding the full "advisory, preliminary
+        # calibration" sentence inside a nav label would make the rule absurd
+        # and get it deleted. Positioning and CVE claims still apply here,
+        # because a tagline IS a claim.
+        pytest.skip(f"{rel} is config; the judged-layer caveat belongs in prose")
     text = path.read_text(encoding="utf-8")
     if not _JUDGED.search(text):
         return  # a surface that never mentions the judged layer owes nothing
@@ -164,3 +177,135 @@ def test_the_judged_caveat_guard_is_not_vacuous() -> None:
     assert _ADVISORY.search("the judged layer stays advisory")
     assert _UNCALIBRATED.search("calibration is preliminary")
     assert not _UNCALIBRATED.search("precision 1.000 with zero false positives")
+
+
+# ---------------------------------------------------------------------------
+# Positioning: building, not hiring, and not "is"
+# ---------------------------------------------------------------------------
+#
+# "We're building the AI safety engineer for your codebase" is honest because
+# of the verb. The complete role is roadmap; one verb of it ships. Two earlier
+# framings claimed more than the measurements support and must not come back.
+
+_RETIRED_FRAMINGS = (
+    "AI Safety Engineer you hire",
+    "applied agentic-safety infrastructure",
+    # Found still live in the docs-site splash hero after every .md body had
+    # been corrected: a third phrasing of the same overclaim, describing the
+    # finished capability with no mention of what is not built. Exact-string
+    # matching only catches the wordings someone remembered to add, which is
+    # why the positive checks (hero says "building", boundary is named) carry
+    # more weight than this list.
+    "Instruments the boundary where AI systems take real-world actions",
+)
+
+
+@pytest.mark.parametrize("rel", SURFACES)
+def test_no_surface_claims_the_whole_role_exists(rel: str) -> None:
+    path = ROOT / rel
+    if not path.is_file():
+        pytest.skip(f"{rel} not present")
+    text = path.read_text(encoding="utf-8")
+    found = [f for f in _RETIRED_FRAMINGS if f.lower() in text.lower()]
+    assert not found, (
+        f"{rel} still carries a framing that claims the finished role: {found}. "
+        "The verb is 'building' - three engine passes each moved held-out recall "
+        "by zero paths, so a claim to be the safety engineer is one a first scan "
+        "would embarrass."
+    )
+
+
+def test_the_landing_page_leads_with_building() -> None:
+    """The hero is where the claim is made or overclaimed, so it is pinned."""
+    text = (ROOT / "website/index.html").read_text(encoding="utf-8")
+    assert "building the" in text.lower(), "the hero must say what is being built, not what exists"
+    head = text[: text.index("</h1>") + 5] if "</h1>" in text else text[:4000]
+    assert "safety engineer" in head.lower()
+
+
+def test_the_landing_page_states_the_boundary_itself() -> None:
+    """Not only in the docs. A visitor who never opens a doc has to be told
+    which shape is uncovered, or the precision number reads as coverage."""
+    text = (ROOT / "website/index.html").read_text(encoding="utf-8")
+    assert "does not yet catch" in text or "not caught yet" in text, (
+        "the landing page must name the uncovered shape in its own copy"
+    )
+    assert "agent framework" in text.lower(), "the uncovered shape must be named"
+
+
+def test_the_landing_page_grounds_the_vision_in_the_same_view() -> None:
+    """The subhead under the hero names the thing that actually ships. Vision as
+    headline is only honest when the live product is in the same viewport."""
+    text = (ROOT / "website/index.html").read_text(encoding="utf-8")
+    hero = text[text.index("<h1") : text.index("</header>")]
+    assert "v1 ships today" in hero, "the hero needs the grounding subhead, not just the vision"
+    assert "roadmap" in hero.lower(), "the hero must point at what is NOT built"
+
+
+# ---------------------------------------------------------------------------
+# CVE claims must match the corpus
+# ---------------------------------------------------------------------------
+#
+# Of the three CVEs that motivate the rule class, the corpus records exactly
+# one as caught:
+#
+#   CVE-2024-5565  (Vanna)            found, both releases
+#   CVE-2024-12366 (PandasAI)         MISSED - a documented false negative
+#   CVE-2023-36258 (LangChain PAL)    never tested - not in the corpus at all
+#
+# All three are legitimate to cite as the family the rule targets. Only the
+# first is legitimate to cite as a result, and the difference is one verb. This
+# test exists because a draft of the launch copy listed all three as catches.
+
+_PANDASAI = "CVE-2024-12366"
+_LANGCHAIN = "CVE-2023-36258"
+
+
+@pytest.mark.parametrize("rel", SURFACES)
+def test_a_missed_cve_is_never_cited_without_its_outcome(rel: str) -> None:
+    path = ROOT / rel
+    if not path.is_file():
+        pytest.skip(f"{rel} not present")
+    text = path.read_text(encoding="utf-8")
+    if _PANDASAI not in text:
+        return
+    assert "missed" in text.lower(), (
+        f"{rel} cites {_PANDASAI} but never says it is missed. The corpus scores "
+        "it as a false negative, so citing it among results overstates coverage - "
+        "cite it as the family the rule targets, or state the outcome."
+    )
+
+
+@pytest.mark.parametrize("rel", SURFACES)
+def test_an_untested_cve_is_only_cited_as_motivation(rel: str) -> None:
+    path = ROOT / rel
+    if not path.is_file():
+        pytest.skip(f"{rel} not present")
+    text = path.read_text(encoding="utf-8")
+    if _LANGCHAIN not in text:
+        return
+    framing = ("targets", "family", "class", "motivat", "refs", "reference")
+    assert any(w in text.lower() for w in framing), (
+        f"{rel} cites {_LANGCHAIN}, which is not in the corpus and has never been "
+        "measured. It may only appear as the family the rule targets, never as a "
+        "result."
+    )
+
+
+def test_the_cve_facts_still_match_the_corpus() -> None:
+    """Vacuity guard, and a drift guard. If PandasAI's label ever becomes a
+    true positive, the test above should be relaxed deliberately rather than
+    left asserting something no longer true - so the premise is checked here.
+    """
+    import yaml
+
+    doc = yaml.safe_load((ROOT / "corpus" / "repos.yaml").read_text(encoding="utf-8"))
+    cves = {r["name"]: r.get("cve") for r in doc["repos"] if r.get("cve")}
+    assert cves.get("pandasai-cve") == _PANDASAI, "the PandasAI corpus entry moved"
+    assert cves.get("vanna-cve") == "CVE-2024-5565"
+    assert _LANGCHAIN not in cves.values(), (
+        f"{_LANGCHAIN} is now in the corpus - if it is measured, the motivation-only "
+        "rule above should be revisited on purpose"
+    )
+    proof = (ROOT / "docs" / "proof-scans.md").read_text(encoding="utf-8")
+    assert "**missed**" in proof, "proof-scans no longer records a miss; check the premise"

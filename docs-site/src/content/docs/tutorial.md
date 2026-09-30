@@ -105,7 +105,7 @@ calls themselves (calling an LLM is not a bug), `jsonify(...)` returns, and
 ## 2. Triage with machine-readable output
 
 For tooling (or an AI agent), use JSON - the schema is stable and versioned
-(see the [CLI reference](/palisade/docs/cli-reference/#json-schema)):
+(see the [CLI reference](/docs/cli-reference/#json-schema)):
 
 ```bash
 palisade-sec scan examples/support-bot --json | jq -c '.findings[] | {rule, file, line, severity}'
@@ -335,7 +335,7 @@ MED  src/vanna/base/base.py:1998  [PI-FRAMEWORK-EXEC] Prompt injection via a fra
 With `--assume-params-untrusted`, the source becomes the public `ask()`
 parameter itself (`source: def ask(  (src/vanna/base/base.py:1594)`), which
 is the entry point a library's callers actually use.
-See [proof-scans.md](/palisade/docs/proof-scans/).
+See [proof-scans.md](/docs/proof-scans/).
 
 ## 8. Variant: the same bugs in JavaScript/TypeScript
 

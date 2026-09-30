@@ -107,7 +107,7 @@ permissions:
   security-events: write
 steps:
   - uses: actions/checkout@v4
-  - uses: arpankernel/palisade@v0.5.2
+  - uses: arpankernel/palisade@v0.7.0
     with:
       baseline: .palisade/baseline.json
 ```
@@ -117,7 +117,7 @@ steps:
 ```yaml
 repos:
   - repo: https://github.com/arpankernel/palisade
-    rev: v0.5.2
+    rev: v0.7.0
     hooks:
       - id: palisade-sec
 ```
@@ -127,14 +127,14 @@ Anywhere else it's one command:
 
 ## Next steps
 
-- The [end-to-end tutorial](/palisade/docs/tutorial/) walks a realistic app from first
+- The [end-to-end tutorial](/docs/tutorial/) walks a realistic app from first
   scan to a fixed, CI-gated state - including `palisade-sec fix`.
 - Auditing a **library** rather than an app? See library mode
-  (`--assume-params-untrusted`) in the [CLI reference](/palisade/docs/cli-reference/).
-- Wiring an **AI agent** to run Palisade? Start at [agents.md](/palisade/docs/agents/).
+  (`--assume-params-untrusted`) in the [CLI reference](/docs/cli-reference/).
+- Wiring an **AI agent** to run Palisade? Start at [agents.md](/docs/agents/).
 - Want more than taint paths? `palisade-sec map` inventories your AI surface
   (offline), and `palisade-sec audit` / `review` add an optional judgment layer
   (install `palisade-sec[judge]`) over an endpoint you set in `.env` (TypeSafe
   or any OpenAI-compatible). Setup
   and the per-command key table are in the
-  [judgment layer guide](/palisade/docs/judgment-layer/).
+  [judgment layer guide](/docs/judgment-layer/).

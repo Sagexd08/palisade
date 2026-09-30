@@ -141,7 +141,7 @@ one JSON document to stdout (warnings inside the document, not on stderr).
 If the target routes LLM calls through its own wrapper
 (`self.inference(...)`), write a custom rule file and pass `--rules <dir>`
 - same `id` overrides a builtin. Schema and semantics:
-[rules-reference.md](/palisade/docs/rules-reference/). Keep custom rules in the target
+[rules-reference.md](/docs/rules-reference/). Keep custom rules in the target
 repo (e.g. `security/palisade-rules/`) so the coverage travels with the code.
 
 ## For agents working on Palisade itself

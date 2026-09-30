@@ -251,7 +251,7 @@ the `keyring` extra) or a `0600` file. Full guide: [connect](connect.md).
 |---|---|
 | `connect github [--token T] [--no-gh]` | Reuses the `gh` CLI's token when logged in, else the OAuth device flow. Verified before storing. |
 | `connect slack [--webhook URL] [--no-test]` | Incoming webhook; posts a test message first. |
-| `connect llm --provider typesafe\|anthropic\|openai_compatible [--key K] [--endpoint U] [--model M] [--no-verify]` | For `audit` / `review` only. |
+| `connect llm --provider typesafe\|anthropic\|openai_compatible [--key K] [--endpoint U] [--model M] [--workspace-id ID] [--no-verify]` | For `audit` / `review` only. `--workspace-id` is required for an Anthropic **organization** key, which is not scoped to a workspace; a key created inside a workspace needs no flag. Also readable as `ANTHROPIC_WORKSPACE_ID`. |
 | `connections` | What is connected, from where, redacted. |
 | `disconnect github\|slack\|llm` | Remove stored credentials. |
 

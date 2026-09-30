@@ -60,7 +60,7 @@ validated.
 
 Beyond the five taint rules, `scan` emits one **graph-based** finding for
 multi-agent systems. It is not a YAML rule; it is computed deterministically
-from the agent graph (see [architecture](/palisade/docs/architecture/)).
+from the agent graph (see [architecture](/docs/architecture/)).
 
 | Finding | Severity | Path |
 |---|---|---|

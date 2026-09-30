@@ -223,12 +223,44 @@ module, so same-named agents in different files are not merged.
 
 ## Scale characteristics
 
-Measured on real repos (see [proof-scans.md](/palisade/docs/proof-scans/)): 1,576 mixed
+Measured on real repos (see [proof-scans.md](/docs/proof-scans/)): 1,576 mixed
 Python+TypeScript files (Langflow 1.2.0, backend + frontend) in ~9 s on an
 Apple M3 Pro (re-measured for 0.5.1), zero
 crashes, zero skipped files, zero false positives. Inter-procedural depth is
 bounded (default 3 hops, configurable) and truncation is reported honestly
 in the scan notes.
+
+## Resolving calls across object boundaries
+
+Framework code rarely calls the dangerous thing directly. It calls a method on
+an attribute, and what that attribute holds was decided somewhere else. So the
+engine resolves an attribute's or a local's **type** and follows the call
+through it, from three sources:
+
+| Source | Shape |
+|---|---|
+| constructed | `self.x = SomeClient(...)`, read from any method of the class |
+| declared in the class body | `driver: SqlDriver = field(...)` - the normal case for attrs, pydantic and dataclass models |
+| declared on a constructor parameter | `def __init__(self, driver: SqlDriver)` with `self.driver = driver` |
+
+The resolved type also takes part in rule matching, so a call on an attribute
+that holds a model object is recognized as an LLM call even though the call site
+names only the attribute. And because a framework entry point is usually a
+template method on an abstract base, the receiver's type is carried into the
+call, letting `self.hook()` inside a base class resolve to the subclass the
+attribute actually holds.
+
+Ambiguity is never guessed. Two same-named classes that both implement the
+method resolve to nothing; an import that names one of them resolves to that
+one. Guessing is how a taint path gets invented, and an invented path is a false
+positive.
+
+**What this does not reach**, measured rather than assumed: paths whose
+capability is chosen at a wiring site in another file (the declared type is
+abstract, the concrete object is injected), and arguments assembled inside a
+container before being splatted into the call. Those need whole-program object
+tracking - following values, not types - which is the next capability on the
+roadmap.
 
 ## Known limits (documented, not hidden)
 

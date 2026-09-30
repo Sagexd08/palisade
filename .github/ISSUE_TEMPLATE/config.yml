@@ -4,7 +4,7 @@ contact_links:
     url: https://github.com/arpankernel/palisade/security/policy
     about: Do not open a public issue for a security vulnerability. Follow the disclosure policy in SECURITY.md.
   - name: Documentation
-    url: https://arpankernel.github.io/palisade/docs/
+    url: https://try.arpankernel.com/docs/
     about: Getting started, CLI reference, rules reference, and architecture.
   - name: Question / discussion
     url: https://github.com/arpankernel/palisade/discussions

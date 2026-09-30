@@ -13,7 +13,7 @@
 > instead of reading it. Every surface states precision and held-out recall
 > together, with the denominator and the direction of error.
 
-- **Status:** v0.6.1 shipped, live on PyPI as `palisade-sec`. The offline static
+- **Status:** v0.7.0 shipped, live on PyPI as `palisade-sec`. The offline static
   core, the judgment layer (`audit`/`review` + posture), red-team synthesis and
   gated execution, multi-agent handoff detection, SARIF + CWE/OWASP-2025 mapping,
   a GitHub Action and pre-commit hook, and SBOM/provenance are all shipped. 0.6.0
@@ -42,7 +42,10 @@ send messages, spend money. The AI decides when to use these powers, and a
 motivated user can manipulate that decision (prompt injection, jailbreaks,
 tool coercion). This is OWASP LLM Top-10 #1 and behind real, exploited CVEs
 (Langflow CVE-2025-3248 on CISA KEV, PandasAI CVE-2024-12366, Vanna
-CVE-2024-5565).
+CVE-2024-5565) - cited here as the risk class, not as a results list. Of those,
+the engine finds the Vanna shape; PandasAI is **missed** and documented as
+missed in `proof-scans.md`, and Langflow is out of contract by design because
+no model sits on its path.
 
 Today, defending this is either:
 - **Runtime proxies / guardrail SaaS** — paid, in the traffic path, bolted on late,

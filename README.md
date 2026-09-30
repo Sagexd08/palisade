@@ -1,13 +1,24 @@
 # Palisade
 
-> **Website:** https://arpankernel.github.io/palisade/ · **Docs:** https://arpankernel.github.io/palisade/docs/
+> **Website:** https://try.arpankernel.com/ · **Docs:** https://try.arpankernel.com/docs/
 
-**A precise static detector for one dangerous shape, and an honest account of
-what it misses.** Palisade finds the path where untrusted input reaches a model
-whose output then reaches a dangerous capability - the shape behind
-CVE-2024-5565 (Vanna), CVE-2024-12366 (PandasAI) and the text-to-SQL and
-code-interpreter class generally. Python and JavaScript/TypeScript, in CI, no
-API key, no signup, no network calls.
+**We're building the AI safety engineer for your codebase.** The complete role
+is the destination. One verb of it ships today, and this is that verb.
+
+**v1: a precise static detector** for the path where untrusted input reaches a
+model whose output then reaches a dangerous capability - the text-to-SQL and
+code-interpreter risk class behind CVE-2024-5565 (Vanna), CVE-2024-12366
+(PandasAI) and CVE-2023-36258 (LangChain PALChain). Of those three the engine
+finds the Vanna shape at the exact line in two releases; PandasAI's dynamic
+pipeline dispatch is **missed** and documented as missed; the LangChain case has
+never been measured and is named here as the family the rule targets, not as a
+result. Python and JavaScript/TypeScript, in CI, no API key, no signup, no
+network calls.
+
+Everything is MIT and free to run. There is no paid tier. The only split is
+keyless-and-offline (`scan`, `map`, `baseline`, `fix`) versus
+bring-your-own-endpoint (`audit`, `review`), and the second is advisory with
+preliminary calibration.
 
 ```
 untrusted input  →  LLM  →  exec / shell / raw SQL   (no sanitizer)   ⇒  finding
@@ -56,18 +67,18 @@ HIGH app.py:40  [PI-EXEC] Prompt injection reaching code execution
 
 ## Documentation
 
-Full docs are published at **[https://arpankernel.github.io/palisade/docs/](https://arpankernel.github.io/palisade/docs/)** (source in [`docs/`](https://github.com/arpankernel/palisade/blob/main/docs/index.md)):
+Full docs are published at **[https://try.arpankernel.com/docs/](https://try.arpankernel.com/docs/)** (source in [`docs/`](https://github.com/arpankernel/palisade/blob/main/docs/index.md)):
 
 | | |
 |---|---|
-| [Getting started](https://arpankernel.github.io/palisade/docs/getting-started/) | Install, first scan, reading a finding, CI gating - 5 minutes |
-| [End-to-end tutorial](https://arpankernel.github.io/palisade/docs/tutorial/) | Full workflow on a sample app ([`examples/support-bot/`](https://github.com/arpankernel/palisade/tree/main/examples/support-bot)): scan → fix → verify → baseline → CI |
-| [Architecture](https://arpankernel.github.io/palisade/docs/architecture/) | Frontends → taint IR → engine → rules; the precision philosophy; the safety contract |
-| [CLI reference](https://arpankernel.github.io/palisade/docs/cli-reference/) | Every command, flag, exit code, config key; the stable JSON schema |
-| [Rules reference](https://arpankernel.github.io/palisade/docs/rules-reference/) | All six builtin rules; pattern semantics; custom rules |
-| [For AI agents](https://arpankernel.github.io/palisade/docs/agents/) | Machine contract: commands, JSON parsing, remediation policy (also [`llms.txt`](https://github.com/arpankernel/palisade/blob/main/llms.txt), [`AGENTS.md`](https://github.com/arpankernel/palisade/blob/main/AGENTS.md)) |
-| [Roadmap](https://arpankernel.github.io/palisade/docs/roadmap/) | Phases 0–6: Measure → Distribute → Cover → Scale → Certify → Expand → Remediate |
-| [Proof scans](https://arpankernel.github.io/palisade/docs/proof-scans/) | Evidence vs. real CVE repos - including the Vanna CVE-2024-5565 catch |
+| [Getting started](https://try.arpankernel.com/docs/getting-started/) | Install, first scan, reading a finding, CI gating - 5 minutes |
+| [End-to-end tutorial](https://try.arpankernel.com/docs/tutorial/) | Full workflow on a sample app ([`examples/support-bot/`](https://github.com/arpankernel/palisade/tree/main/examples/support-bot)): scan → fix → verify → baseline → CI |
+| [Architecture](https://try.arpankernel.com/docs/architecture/) | Frontends → taint IR → engine → rules; the precision philosophy; the safety contract |
+| [CLI reference](https://try.arpankernel.com/docs/cli-reference/) | Every command, flag, exit code, config key; the stable JSON schema |
+| [Rules reference](https://try.arpankernel.com/docs/rules-reference/) | All six builtin rules; pattern semantics; custom rules |
+| [For AI agents](https://try.arpankernel.com/docs/agents/) | Machine contract: commands, JSON parsing, remediation policy (also [`llms.txt`](https://github.com/arpankernel/palisade/blob/main/llms.txt), [`AGENTS.md`](https://github.com/arpankernel/palisade/blob/main/AGENTS.md)) |
+| [Roadmap](https://try.arpankernel.com/docs/roadmap/) | Phases 0–6: Measure → Distribute → Cover → Scale → Certify → Expand → Remediate |
+| [Proof scans](https://try.arpankernel.com/docs/proof-scans/) | Evidence vs. real CVE repos - including the Vanna CVE-2024-5565 catch |
 
 ## Why
 
@@ -130,7 +141,7 @@ contain no untrusted input for taint to start from, so they are reported but
 excluded from the precision claim. Every PR is gated on a fast
 fixture manifest, and the pinned 26-repo corpus is re-scored weekly and on
 demand. See
-[docs/proof-scans.md](https://arpankernel.github.io/palisade/docs/proof-scans/).
+[docs/proof-scans.md](https://try.arpankernel.com/docs/proof-scans/).
 
 Sources cover Flask (`request.*`), FastAPI (`@app.post` route params and
 pydantic bodies), Express (`req.body`/`req.query`), CLIs (`input()`,

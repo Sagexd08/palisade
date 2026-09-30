@@ -1,9 +1,9 @@
 ---
 template: splash
 title: "Palisade"
-description: "Applied agentic-safety infrastructure: untrusted-input → model → dangerous-capability paths caught in CI, before they ship."
+description: "We're building the AI safety engineer for your codebase. v1 ships today: untrusted-input → model → dangerous-capability paths caught in CI, before they ship."
 hero:
-  tagline: Instruments the boundary where AI systems take real-world actions - catches untrusted input → LLM → exec / shell / SQL / fetch, in CI, before it ships.
+  tagline: "We're building the AI safety engineer for your codebase. v1 ships today: it catches untrusted input → LLM → exec / shell / SQL / fetch, in CI, before it ships."
   actions:
     - text: Get started
       link: ./getting-started/
@@ -14,14 +14,27 @@ hero:
       variant: minimal
 ---
 
-**Palisade is applied agentic-safety infrastructure**: it instruments the
-boundary where AI systems take real-world actions, statically detecting the
-untrusted-input → LLM → dangerous-sink paths that are the near-term, tractable
-shape of loss-of-control risk - in Python and JavaScript/TypeScript, in CI,
-before they ship. It is the applied arm of a long-horizon program to reduce
-catastrophic risk from autonomous AI (agentic safety, evals, safety cases,
-oversight, governance - at the application layer), not frontier alignment
-research.
+**We are building the AI safety engineer for your codebase.** The complete role
+is the destination; one verb of it ships today.
+
+**v1, live now:** a precise static detector for prompt-injection-to-execution
+paths - untrusted input reaches a model, and the model's output reaches `exec`,
+a shell, raw SQL, a model-chosen URL, or a dangerous tool across an agent
+handoff. Python and JavaScript/TypeScript, in CI, with no API key and no
+network calls.
+
+**Measured in both directions, and never one without the other:** precision
+**1.000** (zero false positives across 40,466 files in 50 repos) and held-out
+recall **0.000** (0 of 45 independent observations in 20 repos). Ground-truth
+denominators are known-incomplete, so that recall figure is, if anything, an
+overestimate. Palisade **does not yet catch tool-calling agent frameworks** -
+the shape where a framework hands model-chosen arguments to a tool it ships
+across an object boundary. That limit is measured, documented, and named on the
+roadmap as the next capability.
+
+The rest of the role - probing the system adversarially, generating guardrails
+and safety cases, watching production - is upcoming, marked as such, with no
+dates.
 
 ```
 untrusted input  →  LLM  →  exec / shell / raw SQL / URL fetch   (no sanitizer)   ⇒  finding
@@ -31,14 +44,14 @@ untrusted input  →  LLM  →  exec / shell / raw SQL / URL fetch   (no sanitiz
 
 | Document | What it covers | Read it when |
 |---|---|---|
-| [Getting started](/palisade/docs/getting-started/) | Install, first scan, reading a finding, exit codes | You have 5 minutes |
-| [End-to-end tutorial](/palisade/docs/tutorial/) | A full workflow on a sample app: scan → understand → fix → verify → baseline → CI → library mode → JS | You're adopting Palisade on a real project |
-| [Architecture](/palisade/docs/architecture/) | Frontends → taint IR → engine → rules; how a finding is born; the precision philosophy; the safety contract | You're contributing, or evaluating how it works |
-| [CLI reference](/palisade/docs/cli-reference/) | Every command, flag, exit code, config key, the JSON schema, the baseline format | You're wiring it into tooling |
-| [Rules reference](/palisade/docs/rules-reference/) | All six builtin rules in depth; pattern semantics; sanitizer tiers; writing custom rules | You're tuning or extending coverage |
-| [For AI agents](/palisade/docs/agents/) | A machine-oriented contract: exact commands, JSON parsing, pass/fail policy, remediation loop | You're an agent - or you're pointing one at Palisade |
-| [Roadmap](/palisade/docs/roadmap/) | Phases 0–6 (Measure → Remediate), the sequencing thesis, current status per phase | You want to know where this is going |
-| [Proof scans](/palisade/docs/proof-scans/) | Palisade vs. the real CVE repos - hits, misses, and what each miss taught the engine | You want the evidence |
+| [Getting started](/docs/getting-started/) | Install, first scan, reading a finding, exit codes | You have 5 minutes |
+| [End-to-end tutorial](/docs/tutorial/) | A full workflow on a sample app: scan → understand → fix → verify → baseline → CI → library mode → JS | You're adopting Palisade on a real project |
+| [Architecture](/docs/architecture/) | Frontends → taint IR → engine → rules; how a finding is born; the precision philosophy; the safety contract | You're contributing, or evaluating how it works |
+| [CLI reference](/docs/cli-reference/) | Every command, flag, exit code, config key, the JSON schema, the baseline format | You're wiring it into tooling |
+| [Rules reference](/docs/rules-reference/) | All six builtin rules in depth; pattern semantics; sanitizer tiers; writing custom rules | You're tuning or extending coverage |
+| [For AI agents](/docs/agents/) | A machine-oriented contract: exact commands, JSON parsing, pass/fail policy, remediation loop | You're an agent - or you're pointing one at Palisade |
+| [Roadmap](/docs/roadmap/) | Phases 0–6 (Measure → Remediate), the sequencing thesis, current status per phase | You want to know where this is going |
+| [Proof scans](/docs/proof-scans/) | Palisade vs. the real CVE repos - hits, misses, and what each miss taught the engine | You want the evidence |
 
 Related, outside `docs/`:
 

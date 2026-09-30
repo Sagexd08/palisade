@@ -1,43 +1,56 @@
-/* Palisade docs - crimson + cream, matched to the marketing site */
+/* Palisade docs - StacyOS house brand, matched to the marketing site.
+   Cream canvas, Instrument Serif headings, Inter body, JetBrains Mono code,
+   green accent, rounded surfaces. */
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
+
 :root {
-  --sl-font: "Geist", ui-sans-serif, system-ui, sans-serif;
-  --sl-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sl-font: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --pal-serif: "Instrument Serif", ui-serif, Georgia, serif;
+  --pal-radius: 16px;
 }
-/* Light theme = cream canvas, crimson accent */
+
+/* Light = cream canvas, green accent */
 :root[data-theme="light"] {
-  --sl-color-accent-low: #e8d8d5;
-  --sl-color-accent: #6e1f2a;
-  --sl-color-accent-high: #4a131b;
-  --sl-color-white: #2a1512;
-  --sl-color-gray-1: #3a2420;
-  --sl-color-gray-2: #4a322d;
-  --sl-color-gray-3: #6b524c;
-  --sl-color-gray-4: #8a716b;
-  --sl-color-gray-5: #b8a59f;
-  --sl-color-gray-6: #ece1d6;
-  --sl-color-gray-7: #f4ebdf;
-  --sl-color-black: #f7efe1;
-  --sl-color-bg: #f7efe1;
-  --sl-color-bg-nav: #fbeedc;
-  --sl-color-bg-sidebar: #fbeedc;
+  --sl-color-accent-low: #dcfce7;
+  --sl-color-accent: #166534;
+  --sl-color-accent-high: #14532d;
+  --sl-color-white: #1a1a1a;
+  --sl-color-gray-1: #1f1f1f;
+  --sl-color-gray-2: #3a3a3a;
+  --sl-color-gray-3: #4a4a4a;
+  --sl-color-gray-4: #6b6b66;
+  --sl-color-gray-5: #888880;
+  --sl-color-gray-6: #e5e0d6;
+  --sl-color-gray-7: #efebe3;
+  --sl-color-black: #fbf8f3;
+  --sl-color-bg: #fbf8f3;
+  --sl-color-bg-nav: #f5f3ee;
+  --sl-color-bg-sidebar: #f5f3ee;
 }
-/* Dark theme = warm charcoal with crimson accent */
+
+/* Dark = warm charcoal, lifted green */
 :root[data-theme="dark"] {
-  --sl-color-accent-low: #2e1519;
-  --sl-color-accent: #c98a93;
-  --sl-color-accent-high: #f4d0d0;
-  --sl-color-bg: #1a1210;
-  --sl-color-bg-nav: #211714;
-  --sl-color-bg-sidebar: #211714;
+  --sl-color-accent-low: #14301f;
+  --sl-color-accent: #4ade80;
+  --sl-color-accent-high: #bbf7d0;
+  --sl-color-bg: #0f0f0e;
+  --sl-color-bg-nav: #171715;
+  --sl-color-bg-sidebar: #171715;
 }
-/* neo-brutalist: kill rounded corners across the docs chrome */
-.sl-markdown-content :is(pre, code, table, img, blockquote),
-.card, .sl-link-button, dialog, .sidebar-pane, details {
-  border-radius: 0 !important;
+
+/* Rounded surfaces, the house shape */
+.sl-markdown-content :is(pre, table, img, blockquote),
+.card, .sl-link-button, dialog, details {
+  border-radius: var(--pal-radius);
 }
-.site-title { font-family: var(--sl-font-mono); font-weight: 700; letter-spacing: 0.04em; }
-.sl-markdown-content h1, .sl-markdown-content h2, .sl-markdown-content h3 {
-  letter-spacing: -0.02em;
+.sl-markdown-content :is(code) { border-radius: 6px; }
+
+/* Serif headings, at the one weight Instrument Serif actually ships */
+.sl-markdown-content :is(h1, h2, h3, h4),
+.content-panel h1, .site-title {
+  font-family: var(--pal-serif);
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
-/* crimson left-rule on blockquotes, code chips tinted warm */
-.sl-markdown-content blockquote { border-inline-start: 2px solid var(--sl-color-accent); }
+.site-title { letter-spacing: 0; }

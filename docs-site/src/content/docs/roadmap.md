@@ -7,20 +7,34 @@ How Palisade goes from a working v0.5.x to applied agentic-safety
 infrastructure a team puts in front of every PR. This sequences the work and
 argues **why this order** - then reports current status honestly against it.
 
-## v1: the agentic-safety layer
+## The growth path: one loop, four verbs
 
-Alongside the phase progression below, Palisade is growing from a taint linter
-into applied agentic-safety infrastructure: it exercises, in miniature and at
-the application layer, the disciplines the long-horizon catastrophic-risk agenda
-runs on. Each existing capability maps onto a pillar of that agenda:
+We are building the AI safety engineer for a codebase. The complete role is the
+destination, and exactly one verb of it ships today: **SEE**, the static
+detector for prompt-injection-to-execution paths. JUDGE, PROBE, GUARD and WATCH
+are upcoming, with no dates, and the table below says which is which rather
+than implying the whole loop exists.
 
-| Palisade capability | Agenda pillar it instantiates |
-|---|---|
-| `scan` / `map` - the action-boundary surface (input → model → exec/shell/SQL/payments/secrets) | **Agentic safety** - the model→high-impact-action interface, which is the loss-of-control surface as autonomy scales |
-| `redteam` synthesis + gated execution + scoring, on a pinned corpus | **Evals** - a grounded harness for a verifiable failure class |
-| `review` + posture score, grounded in verified static facts | **Safety cases** - a structured, evidence-backed argument about a system's safety posture |
-| advisory + approval gates (proposes all; human approves mutating/prod; never executes customer code) | **Oversight** - a human at the high-impact boundary, machine doing the labor |
-| SARIF, CI gates, CWE/OWASP-LLM mapping, disclosure/provenance | **Governance** - makes safety practice enforceable as an org requirement |
+That ordering is not modesty. Three engine passes each moved held-out recall by
+zero paths, so a claim to cover the agent-framework shape would be a claim a
+first scan could embarrass. Each capability below maps onto a pillar of the
+long-horizon agenda, and carries its real status:
+
+| Verb | Status | Palisade capability | Agenda pillar it instantiates |
+|---|---|---|---|
+| **SEE** | **shipped (v1)** | `scan` / `map` - the action-boundary surface (input → model → exec/shell/SQL/payments/secrets) | **Agentic safety** - the model→high-impact-action interface, which is the loss-of-control surface as autonomy scales |
+| **JUDGE** | upcoming - advisory today, calibration preliminary | `audit` / `review` + posture score, grounded in verified static facts | **Safety cases** - a structured, evidence-backed argument about a system's safety posture |
+| **PROBE** | upcoming - synthesis and gated execution exist, the calibrated measurement does not | `redteam` synthesis + gated execution + scoring, on a pinned corpus | **Evals** - a grounded harness for a verifiable failure class |
+| **GUARD** | upcoming - deterministic `fix` ships; the guardrail and safety-case generators are not built | `fix`, with a regression test per finding | **Oversight** - a human at the high-impact boundary, machine doing the labor |
+| **WATCH** | upcoming - nothing built | opt-in self-hosted runtime SDK: monitoring, circuit-breaking, incident capture | **Governance** - makes safety practice enforceable as an org requirement |
+| (cross-cutting) | shipped | advisory + approval gates; SARIF, CI gates, CWE/OWASP-LLM mapping, disclosure/provenance | **Oversight + governance** at the pipeline boundary |
+
+No dates on any upcoming row, deliberately. The next capability that unblocks
+**SEE** on the agent-framework shape is **whole-program object tracking** -
+following values rather than types - specified from documented train misses
+only. The cheaper abstract-dispatch shortcut is recorded as **rejected for
+now**: it would raise recall by spending the precision the shipped product
+rests on.
 
 The scope is deliberate and honest: this is engineering infrastructure at the
 deployment layer, **not frontier alignment research**. Its catastrophic-risk
@@ -116,7 +130,7 @@ sandbox by default (autogen, dspy) and 3 reach raw SQL or a shell directly
 labelled, so recall stays honest and the gaps stay visible. They point at
 three engine capabilities, now the top of Phase 2: tool-call arguments as
 model output, more LLM call shapes, and method calls on objects the engine
-cannot resolve. Full detail in [proof-scans.md](/palisade/docs/proof-scans/).
+cannot resolve. Full detail in [proof-scans.md](/docs/proof-scans/).
 
 | Phase | Theme | Status |
 |---|---|---|

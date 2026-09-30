@@ -31,8 +31,8 @@ dependencies = [
 # someone arriving from `pip search`-shaped discovery actually clicks. 0.6.0
 # published only Homepage and Issues, so the docs site and the changelog were
 # unreachable from the package page.
-Homepage = "https://arpankernel.github.io/palisade/"
-Documentation = "https://arpankernel.github.io/palisade/docs/"
+Homepage = "https://try.arpankernel.com/"
+Documentation = "https://try.arpankernel.com/docs/"
 Source = "https://github.com/arpankernel/palisade"
 Changelog = "https://github.com/arpankernel/palisade/blob/main/CHANGELOG.md"
 Issues = "https://github.com/arpankernel/palisade/issues"
