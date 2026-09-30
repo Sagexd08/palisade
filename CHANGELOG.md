@@ -1,5 +1,75 @@
 # Changelog
 
+## 0.7.0 - 2026-09-30
+
+Measured what this engine misses, three times, and rewrote the product's claim
+to match rather than rewriting the number.
+
+### The number, and why it is in the changelog
+
+A held-out half of the benchmark corpus was built under
+`corpus/RECALL-PROTOCOL.md`: repos assigned by a seeded shuffle committed
+before anyone read them, then labelled by agents with no knowledge of this
+engine, recording location and verbatim sink text only. 98 real paths in 20
+repos, 45 of them independent once correlated paths are collapsed.
+
+    precision   1.000    zero false positives across 40,466 files (50 repos)
+    recall      0.000    held-out: 0 of 98 paths, 0 of 45 observations
+    recall      0.235    train: 4 of 17, and fit by construction
+
+Three engine passes each moved the held-out number by zero paths. The
+constraint was then traced rather than guessed: those paths end in
+dependency-injected abstractions and in value flow through constructed
+containers, which need whole-program object tracking, not another rule. So the
+claim narrowed to what is measured, and the missing capability is on the
+roadmap with no date.
+
+**Neither number is published without the other, anywhere**, and
+`tests/test_launch_claims.py` fails the build if a surface tries. A scanner
+that reports nothing has perfect precision for free.
+
+### Added
+
+- **Attribute-type resolution across object boundaries.** A call on an
+  attribute or a local resolves through the type it holds - constructed
+  (`self.x = T(...)`), declared in the class body (`x: T = field(...)`) or
+  declared on an `__init__` parameter stored on self - and the type takes part
+  in LLM-signature and sink matching. The receiver's type is threaded through
+  the call, so a template method on an abstract base can resolve its own hook.
+  Ambiguity is never guessed.
+- **Tool-call arguments are modeled as model output** (`model_output_params` in
+  the rule schema). An agent tool's arguments are written by the model, so a
+  tool body reaching a dangerous sink is a complete path; the model call itself
+  is in the framework's dispatch loop, usually in another package.
+- LLM call shapes: `model_client.create`/`create_stream`, `prompt_driver.run`,
+  `messages.stream`, and constructed dspy modules resolved through the
+  attribute holding them. Named exactly - a wildcard would make every `.create`
+  an LLM call.
+- Sinks taken verbatim from documented misses: `*.execute_code_blocks`,
+  `interpreter.execute`, `repl.execute`.
+- Corpus grown from 26 to 50 pinned repositories, 17,352 to 40,466 files.
+  Labels carry a `capability` (sql/shell/exec/http/handoff) instead of a rule
+  id, and a `group` tag so correlated paths are reported as an effective n.
+- `scripts/precision.py`: recall by split, group-level and per-capability
+  denominators, and held-out miss coordinates suppressed unless
+  `--held-out-detail` is passed, because a list of held-out misses is a to-do
+  list for the next engine change.
+
+### Fixed
+
+- Three real vulnerabilities in the corpus that our own audit had missed - two
+  `crewai` tools, found by triaging a false positive that turned out to be the
+  engine being right and the ground truth incomplete. Recorded with their
+  provenance, and the corpus now declares that its labels are known-incomplete
+  in the direction that makes recall a generous figure rather than a
+  conservative one.
+
+### Changed
+
+- The product claim. Palisade is a precise detector for the model-output to
+  dangerous-sink shape behind the real CVEs, with published held-out recall. The
+  safety-engineer role stays as the direction of travel, marked future work.
+
 ## 0.6.2 - 2026-09-30
 
 The policy the judgment layer routes on is now the customer's, not ours.
