@@ -38,9 +38,7 @@ SURFACES = [
 ]
 
 # The precision claim in any of the spellings the surfaces actually use.
-_PRECISION = re.compile(
-    r"precision[^.\n]{0,40}1\.000|zero false positives|0 false positives", re.I
-)
+_PRECISION = re.compile(r"precision[^.\n]{0,40}1\.000|zero false positives|0 false positives", re.I)
 # The held-out figure, and its denominator - a bare "0.000" would let someone
 # satisfy this rule while leaving the reader to assume n=2.
 _HELD_OUT = re.compile(r"held-out", re.I)
@@ -103,3 +101,66 @@ def test_the_direction_of_error_is_published() -> None:
     assert "known-incomplete" in text or "overestimate" in text, (
         "the README must carry the direction of the ground-truth error"
     )
+
+
+# ---------------------------------------------------------------------------
+# The judged layer is advisory and uncalibrated, and must say so
+# ---------------------------------------------------------------------------
+#
+# The recall pair is not the only number a reader can over-read. `audit` and
+# `review` ship in 0.7.0 with their calibration still a 10-case seed corpus
+# (n=4-6 per signal) - not a benchmark result - and the judged layer is the part
+# of this release most likely to be read as "the AI decides whether you are
+# safe". It is the same failure as quoting precision alone: a number that sounds
+# like evidence, presented without the thing that makes it weak.
+#
+# Substance, not vocabulary. Nothing requires the word "uncalibrated"; a surface
+# that says "preliminary, measured on a seed corpus, not a benchmark result"
+# has told the reader more than the word would.
+
+# The FEATURE, not the English words. A first draft matched `\baudit\b` and
+# `\breview\b`, which fired on "a 2026-09-22 audit of the clean repos" and on
+# "review, then either fix or baseline" - ordinary prose about auditing and
+# reviewing, nothing to do with the judged layer. A guard that cries wolf on
+# plain English gets widened until it means nothing.
+_JUDGED = re.compile(
+    r"palisade-sec\s+(audit|review)|`audit`|`review`|judgment layer|judged (layer|check|signal)",
+    re.I,
+)
+_ADVISORY = re.compile(r"advisory", re.I)
+_UNCALIBRATED = re.compile(
+    r"uncalibrated|not calibrated|preliminary|seed corpus|seed-corpus|not a benchmark result",
+    re.I,
+)
+
+
+@pytest.mark.parametrize("rel", SURFACES)
+def test_the_judged_layer_is_labelled_advisory_and_uncalibrated(rel: str) -> None:
+    path = ROOT / rel
+    if not path.is_file():
+        pytest.skip(f"{rel} not present")
+    text = path.read_text(encoding="utf-8")
+    if not _JUDGED.search(text):
+        return  # a surface that never mentions the judged layer owes nothing
+    assert _ADVISORY.search(text), (
+        f"{rel} describes the judged layer and never calls it advisory. It is "
+        "the part of this release most likely to be read as the tool deciding "
+        "whether you are safe."
+    )
+    assert _UNCALIBRATED.search(text), (
+        f"{rel} describes the judged layer without saying its calibration is "
+        "preliminary. The signal is measured on a 10-case seed corpus, not a "
+        "benchmark, and a reader cannot know that from the surface alone."
+    )
+
+
+def test_the_judged_caveat_guard_is_not_vacuous() -> None:
+    """The regexes have to actually fire, or every assertion above passes on a
+    surface that says nothing at all."""
+    assert _JUDGED.search("run palisade-sec audit .")
+    assert not _JUDGED.search("a 2026-09-22 audit of the clean repos found 7 paths")
+    assert not _JUDGED.search("advisory severity: review, then fix or baseline")
+    assert not _JUDGED.search("a precise static detector for one shape")
+    assert _ADVISORY.search("the judged layer stays advisory")
+    assert _UNCALIBRATED.search("calibration is preliminary")
+    assert not _UNCALIBRATED.search("precision 1.000 with zero false positives")

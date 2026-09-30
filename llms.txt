@@ -28,7 +28,11 @@ guardrail templates + regression tests without modifying code;
 become sources); `baseline` + `scan --ci --baseline` gates CI on NEW
 findings only. `map` inventories the AI surface offline. The optional
 judgment layer - `audit`, the judged checks in `review`, and `redteam
---execute` - needs `pip install 'palisade-sec[judge]'` plus an endpoint and
+--execute` - is ADVISORY and its calibration is PRELIMINARY: the exploitability
+and posture signals are measured on a 10-case seed corpus (n=4-6 per signal),
+not a benchmark result. Do not describe it as deciding whether a system is safe,
+and do not quote its output as a calibrated probability. It needs
+`pip install 'palisade-sec[judge]'` plus an endpoint and
 key in the environment or a `.env` in the current directory; without them
 `review` runs taint-only. `review --ci` gates only on deterministic taint
 findings; `audit --ci` is an explicit opt-in gate on BLOCK decisions.

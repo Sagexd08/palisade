@@ -112,6 +112,17 @@ run by `audit` and composed by `review`.
 report merging taint + semantic with a posture score (**done**) + per-check
 calibration (**done for the 2 shipped checks; needs a case per new check**).
 
+### Status of this layer's own number [reconciled]
+
+**The judged layer is advisory, and its calibration is preliminary.** The
+exploitability and posture signals are measured on a 10-case seed corpus
+(n=4-6 per signal) - not a benchmark result, and not comparable to the
+deterministic core's corpus figures below. `review --ci` gates only on
+deterministic taint findings; `audit --ci` is an explicit opt-in. Nothing in
+this document should be read as the layer deciding whether a system is safe,
+and this document stays internal until the layer has a calibration number of
+its own.
+
 ### The number this document should not bury [reconciled]
 
 The deterministic core measures **precision 1.000, recall 0.235** on the train
