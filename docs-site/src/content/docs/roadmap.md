@@ -194,20 +194,74 @@ Directly serves the North Star metric: repos running Palisade in CI.
 version." Post-launch churn comes from coverage gaps; this phase also opens
 the community-rule flywheel - the moat.
 
-**First, the measured recall gaps** (train recall 0.200 on 10 documented
-paths; each item below explains several of the 8 labelled misses). These gaps
-are specified from the **train** half on purpose: its misses are already
-explained in `docs/proof-scans.md`, so building against them costs nothing that
-was not already spent. The held-out half - 6 paths, recall **0.000** - is what
-measures whether closing them generalizes, so nothing below may be specified
-from a held-out miss. See `corpus/RECALL-PROTOCOL.md`.
+**First, the measured recall gaps** (train recall 0.133 over 15 documented
+paths). These gaps are specified from the **train** half on purpose: its misses
+are already explained in `docs/proof-scans.md`, so building against them costs
+nothing that was not already spent. The held-out half - 98 paths, 45
+independent observations, recall **0.000** - is what measures whether closing
+them generalizes, so nothing below may be specified from a held-out miss. See
+`corpus/RECALL-PROTOCOL.md`.
 
-- **Tool-call arguments as model output.** Arguments to a registered agent
-  tool (`BaseTool._run`, autogen `BaseTool.run`, griptape activities,
-  decorator-registered tools) are written by the model; treat them as tainted.
-- **More LLM call shapes.** `model_client.create`/`create_stream`, dspy
-  Module calls and `dspy.Predict`/`ChainOfThought`, `prompt_driver.run`,
-  `messages.stream`.
+### Read the next measurement on the right axis
+
+Held-out recall is 0.000 over 45 independent observations, and that number says
+something narrower than "recall is low". It says the engine models **one shape**
+- untrusted text reaching a project wrapper that reaches `exec` - and the field
+has moved to **another**: an agent framework whose own code hands model-chosen
+arguments to a tool it ships.
+
+So the fork has to be named before the fix, not after:
+
+| After both gap closures, held-out goes... | What it means | What follows |
+|---|---|---|
+| **0/45 -> a large fraction** | the documented gaps were the blockers, and they generalize | the engine works; calibrate and ship |
+| **0/45 -> 1-3/45** | the gaps were real misses and closing them was correct, but they are not what held-out is made of | the agent-framework shape needs **its own rule family**, which is a larger piece of work than two gap closures |
+| **0/45 -> 0/45** | same conclusion, stated more sharply | as above |
+
+The middle row is the outcome to expect, and it is **not a failed fix**. Two
+train gaps closing and held-out barely moving is evidence about what held-out
+contains, which is exactly what a held-out set is for. Reading it as pass/fail
+on the gap work would be reading it on the wrong axis - and would create
+pressure to go looking at held-out misses for the next spec, which is the one
+thing that would destroy the measurement.
+
+### The gaps, each specified from a train miss
+
+Written before the code, by coordinate and verbatim sink, so the derivation is
+auditable and provably contains no held-out path.
+
+**Gap 1 - tool-call arguments are not modeled as model output.** Diagnosed in
+`docs/proof-scans.md` for crewai-tools and autogen. Train misses it targets:
+
+| train path | verbatim sink |
+|---|---|
+| `crewai` lib/crewai-tools/.../snowflake_search_tool.py:216 | `cursor.execute(query, timeout=timeout)` |
+| `autogen` .../autogen-ext/.../code_execution/_code_execution.py:83 | `result = await self._executor.execute_code_blocks(` |
+| `griptape` griptape/drivers/sql/sql_driver.py:37 | `results = con.execute(sqlalchemy.text(query))` |
+
+Fix derived from those three alone: a function registered as an agent tool has
+model-written parameters, so its parameters are an LLM-output source, not a
+plain untrusted source. Registration is recognised from the decorators and base
+classes those three repos use.
+
+**Gap 2 - LLM call shapes that are not recognised as LLM calls.** Diagnosed for
+autogen (`model_client.create`), dspy (module calls) and griptape
+(`prompt_driver.run`). Train misses it targets:
+
+| train path | verbatim sink |
+|---|---|
+| `dspy` dspy/predict/program_of_thought.py:188 | `result = interpreter.execute(code)` |
+| `dspy` dspy/predict/rlm.py:707 | `return repl.execute(code, variables=dict(input_args))` |
+| `autogen` .../autogen-agentchat/.../agents/_code_executor_agent.py:718 | `result = await self._code_executor.execute_code_blocks(code_blocks` |
+
+Fix derived from those three alone: add the wrapper signatures those repos call
+to the recognised LLM-call set, so the source -> LLM -> sink chain becomes
+visible when the SDK call is not syntactically present.
+
+**Measurement discipline for this pass:** close both gaps, then measure
+**once**. Measuring after each fix and stopping when the number moves is a soft
+form of fitting, and it is the version of fitting that feels like diligence.
+
 - **Method calls on objects.** Resolve `obj.method(x)` and
   `self.attr.method(x)` through constructor and attribute types (abstract
   executors, SQL drivers), and model code-execution sinks reached that way

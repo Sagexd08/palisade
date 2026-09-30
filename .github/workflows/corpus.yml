@@ -20,9 +20,13 @@ permissions:
 jobs:
   score:
     runs-on: ubuntu-latest
-    # A full pass is ~25+ min of CPU across ~25k files (litellm alone is
-    # 8,170), plus cloning gigabytes. Give it real headroom: a timeout here
-    # reads as a precision failure when it is only a slow runner.
+    # A full pass is ~25+ min of CPU across 40,466 files in 50 repos, plus
+    # ~5.8 GB of shallow clones. Give it real headroom: a timeout here reads as
+    # a precision failure when it is only a slow runner.
+    #
+    # This stays on a schedule and never on a pull request. The PR gate runs the
+    # fast fixture manifest in ci.yml; moving it here would make every PR wait
+    # minutes and would gate contributors on network access to 50 repositories.
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

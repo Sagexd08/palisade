@@ -496,6 +496,13 @@ repos:
       - {file: lavague-core/lavague/core/extractors.py, line: 140, capability: exec, verdict: flag, group: a,
          mitigation: "none",
          code: "return eval(self.extract(text))"}
+  # KNOWN EMPTY: this checkout contains no Python at all - the repository at this
+  # URL is documentation and policy files only, the code having moved elsewhere.
+  # It is NOT a scanned-but-clean repo and must not be counted as one: the
+  # harness correctly reports it as an unchallenged target, because a scan that
+  # read zero files is no evidence of anything. Kept rather than removed - it was
+  # assigned by the seeded shuffle, and deleting an assigned repo after seeing
+  # what is in it is relabelling after the fact. It contributes 0 findable paths.
   - {name: letta,            url: https://github.com/letta-ai/letta,                          kind: clean, split: train}
   - name: llama-index
     url: https://github.com/run-llama/llama_index
