@@ -37,6 +37,20 @@ sources:
       - "*.patch"
       - "*.delete"
       - "*.websocket"
+model_output_params:
+  # Derived from the train misses in docs/proof-scans.md, and from those only:
+  #   crewai   lib/crewai-tools/.../snowflake_search_tool.py:216  (BaseTool._run)
+  #   autogen  .../autogen-ext/.../code_execution/_code_execution.py:83 (BaseTool.run)
+  #   griptape griptape/drivers/sql/sql_driver.py:37               (@activity)
+  - kind: name
+    patterns:
+      - "BaseTool.run"
+      - "BaseTool._run"
+      - "BaseTool._arun"
+  - kind: decorator
+    patterns:
+      - "activity"
+      - "*.activity"
 llm_signatures:
   - kind: call
     patterns:
@@ -53,6 +67,15 @@ llm_signatures:
       - "*.completion_with_retry"
       - "*.generate_sql"
       - "*.generate_response"
+      # Gap 2, from the train misses: autogen's model_client wrapper and
+      # griptape's prompt_driver. Named exactly, never as *.create or *.run -
+      # a wildcard there would call any .create() an LLM call.
+      - "model_client.create"
+      - "model_client.create_stream"
+      - "_model_client.create"
+      - "_model_client.create_stream"
+      - "prompt_driver.run"
+      - "messages.stream"
 sinks:
   - kind: call
     patterns:
@@ -64,6 +87,15 @@ sinks:
       - "*.execute_code"
       - "*.execute_plan"
       - "*.run_python"
+      # From the train misses, by verbatim sink text:
+      #   autogen  _code_execution.py:83        `self._executor.execute_code_blocks(`
+      #   autogen  _code_executor_agent.py:718  `self._code_executor.execute_code_blocks(`
+      #   dspy     program_of_thought.py:188    `interpreter.execute(code)`
+      #   dspy     rlm.py:707                   `repl.execute(code, variables=...)`
+      - "*.execute_code_blocks"
+      - "interpreter.execute"
+      - "repl.execute"
+      - "code_executor.execute_code_blocks"
     taint_args: [0]
 sanitizers:
   - kind: call

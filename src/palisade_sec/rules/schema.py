@@ -57,6 +57,21 @@ class Rule(BaseModel):
     severity: Literal["high", "med", "low"]
     description: str
     sources: list[PatternSpec] = Field(default_factory=list)
+    # Functions whose PARAMETERS are model output rather than merely untrusted.
+    #
+    # An agent tool's arguments are written by the model, so a tool body that
+    # reaches a dangerous sink is already a complete source -> LLM -> sink path:
+    # the LLM hop happened at the function boundary. Without this the chain is
+    # invisible, because the model call is in the framework's dispatch loop and
+    # often in another package entirely (docs/proof-scans.md, gap 1).
+    #
+    # Two spellings, both taken from the train misses this closes:
+    #   kind: decorator  -> matched against the function's decorators
+    #                       (griptape's @activity)
+    #   kind: name       -> "Base.method": a method of that name on a class whose
+    #                       bases include that class (crewai BaseTool._run,
+    #                       autogen BaseTool.run)
+    model_output_params: list[PatternSpec] = Field(default_factory=list)
     llm_signatures: list[PatternSpec] = Field(min_length=1)
     sinks: list[PatternSpec] = Field(min_length=1)
     sanitizers: list[PatternSpec] = Field(default_factory=list)

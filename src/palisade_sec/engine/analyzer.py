@@ -307,18 +307,18 @@ class _RuleRun:
                 if f.class_name:
                     classes.setdefault(f.class_name, []).append(f)
             for f in plain:
-                _Exec(self, f, mod, self.entry_env(f), depth=0).run()
+                _Exec(self, f, mod, self.entry_env(f, mod), depth=0).run()
             for cname, methods in classes.items():
                 # pass 1 collects taints assigned to self.<field>; pass 2
                 # re-analyzes with those fields pre-seeded (FN-5).
                 for _pass in (1, 2):
                     fields = dict(self.class_fields.get((mod.stem, cname), {}))
                     for f in methods:
-                        env = self.entry_env(f)
+                        env = self.entry_env(f, mod)
                         env.update(fields)
                         _Exec(self, f, mod, env, depth=0).run()
 
-    def entry_env(self, fn: ir.FuncDef) -> dict[str, TaintSet]:
+    def entry_env(self, fn: ir.FuncDef, mod: ir.Module) -> dict[str, TaintSet]:
         """Parameter taints for an entry-point analysis.
 
         Params are untrusted sources when (a) library mode
@@ -328,6 +328,33 @@ class _RuleRun:
         web-framework entry point per the rule's decorator-kind sources
         (FastAPI `@app.post` handlers receive the request as parameters)."""
         env: dict[str, TaintSet] = {p: EMPTY for p in fn.params}
+        tool_marker = self._tool_param_marker(fn, mod)
+        if tool_marker is not None:
+            # An agent tool's arguments are written by the model, so its params
+            # arrive already past the LLM hop. Seeded as LLM taint, not SOURCE:
+            # the model call is in the framework's dispatch loop, frequently in
+            # another package, so requiring a visible source -> LLM chain here
+            # makes the whole class of finding unreachable (gap 1).
+            for p in fn.params:
+                if p in ("self", "cls"):
+                    continue
+                self.sources_seen.add((fn.loc.file, fn.loc.line, f"tool-arg:{p}"))
+                env[p] = frozenset(
+                    {
+                        Taint(
+                            kind=LLM,
+                            src_pattern=f"tool-arg:{p}",
+                            src_file=fn.loc.file,
+                            src_line=fn.loc.line,
+                            src_snippet=fn.loc.snippet,
+                            llm_pattern=tool_marker,
+                            llm_file=fn.loc.file,
+                            llm_line=fn.loc.line,
+                            llm_snippet=fn.loc.snippet,
+                        )
+                    }
+                )
+            return env
         dec_specs = [sp for sp in self.rule.sources if sp.kind == "decorator"]
         is_route_handler = any(match_any_strict(d, dec_specs) is not None for d in fn.decorators)
         if is_route_handler or (
@@ -349,6 +376,35 @@ class _RuleRun:
                     }
                 )
         return env
+
+    def _tool_param_marker(self, fn: ir.FuncDef, mod: ir.Module) -> str | None:
+        """The marker that registers `fn` as an agent tool, or None.
+
+        Decorator form is a plain path match. The `kind: name` form is written
+        "Base.method" and needs the class hierarchy, so it is matched here
+        rather than through the dotted-path matcher: the pattern is a claim
+        about a class's bases, not about an expression path.
+        """
+        for spec in self.rule.model_output_params:
+            if spec.kind == "decorator":
+                for dec in fn.decorators:
+                    if match_any_strict(dec, [spec]) is not None:
+                        return dec
+            elif spec.kind == "name":
+                if not fn.class_name:
+                    continue
+                bases = mod.class_bases.get(fn.class_name, [])
+                for pattern in spec.patterns:
+                    base, _, method = pattern.rpartition(".")
+                    if not base or fn.name != method:
+                        continue
+                    # A base is written `BaseTool` but may appear as
+                    # `autogen_core.tools.BaseTool` or `BaseTool[In, Out]`.
+                    for b in bases:
+                        head = b.split("[", 1)[0]
+                        if head == base or head.endswith("." + base):
+                            return pattern
+        return None
 
     def call_function(
         self,
