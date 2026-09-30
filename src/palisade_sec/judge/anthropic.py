@@ -37,6 +37,23 @@ _SYSTEM = (
 )
 
 
+
+def _why(resp: httpx.Response) -> str:
+    """The provider's reason for a failure, and nothing else.
+
+    Anthropic answers an error as {"error": {"message": ...}}. That message is
+    the actionable part and cannot contain the API key; the surrounding body can
+    echo the request, which carries the scanned code. So the message is taken
+    alone, and bounded, because it is still text from outside.
+    """
+    try:
+        payload = resp.json()
+    except ValueError:
+        return "no reason given"
+    reason = (payload or {}).get("error", {}).get("message") if isinstance(payload, dict) else None
+    return str(reason)[:300] if reason else "no reason given"
+
+
 class AnthropicBackend:
     name = "anthropic"
     verified = False
@@ -70,10 +87,19 @@ class AnthropicBackend:
 
     def ask(self, state: object, questions: list[Question]) -> JudgeResult:
         user = json.dumps({"state": state, "questions": _questions_spec(questions)})
+        # No `temperature`. Current Claude models reject it outright - "`
+        # temperature` is deprecated for this model", HTTP 400 - which broke
+        # `audit` entirely against the default backend while `connect llm`
+        # still reported the key as verified, because the probe does not send
+        # it. A key that verifies has to be a key that works.
+        #
+        # It was there for reproducible judgments. That property now rests on
+        # the schema-validated reply and on temperature 0 being the API's own
+        # default for these models, which is weaker - and is one more reason
+        # the judged layer is labelled advisory rather than calibrated.
         body = {
             "model": self.model,
             "max_tokens": MAX_TOKENS,
-            "temperature": 0,
             "system": _SYSTEM,
             "messages": [{"role": "user", "content": user}],
         }
@@ -113,7 +139,12 @@ class AnthropicBackend:
         if resp.status_code == 429:
             raise JudgeError("Anthropic rate limit (429); retry later.")
         if resp.status_code >= 400:
-            raise JudgeError(f"Anthropic returned HTTP {resp.status_code}.")
+            # Carry the provider's own explanation. Withholding it is what
+            # turned a one-line configuration bug into `HTTP 400.` with nothing
+            # to search for. Only `error.message` is taken, never the raw body:
+            # the request echo could contain the code snippets, and the reason
+            # field cannot contain the key.
+            raise JudgeError(f"Anthropic returned HTTP {resp.status_code}: {_why(resp)}")
         try:
             data = resp.json()
         except ValueError:

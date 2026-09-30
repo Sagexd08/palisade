@@ -13,6 +13,9 @@ from palisade_sec.judge import config as _jconfig  # noqa: E402
 # The real .env reader, kept for the tests that exercise it; every other test
 # sees an empty .env (see _never_read_a_real_dotenv).
 REAL_DOTENV_VALUES = _jconfig._dotenv_values
+# Likewise for the keychain reader (see _never_read_the_real_keychain): the
+# tests that assert stored credentials configure the judge need the real one.
+REAL_STORED_JUDGE_SETTINGS = _jconfig._stored_judge_settings
 
 
 @pytest.fixture(autouse=True)
@@ -24,6 +27,25 @@ def _never_read_a_real_dotenv(monkeypatch):
     from palisade_sec.judge import config as jconfig
 
     monkeypatch.setattr(jconfig, "_dotenv_values", lambda: {})
+
+
+@pytest.fixture(autouse=True)
+def _never_read_the_real_keychain(monkeypatch):
+    """The same hazard as `.env`, one door along, and it was open.
+
+    `get_backend()` also merges settings stored in the OS keychain by
+    `palisade-sec connect llm`. So the suite's result depended on whether the
+    developer running it happened to have a provider connected: green in CI,
+    which has no keychain, and eight failures on a machine where someone had
+    connected a real key - failures with nothing to do with their change.
+
+    A test suite that reads the developer's live credentials is a suite that
+    reports on the machine instead of the code. Tests that exercise stored
+    settings patch this themselves.
+    """
+    from palisade_sec.judge import config as jconfig
+
+    monkeypatch.setattr(jconfig, "_stored_judge_settings", lambda: {})
 
 
 @pytest.fixture(scope="session")

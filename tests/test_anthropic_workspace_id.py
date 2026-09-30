@@ -84,3 +84,64 @@ def test_both_causes_of_a_400_get_named() -> None:
         "the two causes must be distinguished by whether an id was supplied, not "
         "by whether the provider's body happened to mention it"
     )
+
+
+# ---------------------------------------------------------------------------
+# The request body, and the error that hid why it failed
+# ---------------------------------------------------------------------------
+
+
+def test_the_request_does_not_send_temperature() -> None:
+    """`audit` was completely broken against the default backend and
+    `connect llm` still called the key verified.
+
+    Current Claude models answer `temperature` with HTTP 400 - "`temperature`
+    is deprecated for this model" - and the verify probe does not send it, so
+    the probe passed and every real call failed. This is the same
+    verifies-but-does-not-work divergence the header test guards, arriving
+    through the body instead, which is why it is pinned here rather than left
+    to a comment.
+    """
+    import inspect
+
+    src = inspect.getsource(AnthropicBackend.ask)
+    assert '"temperature"' not in src, (
+        "sending temperature breaks audit on current models; it was removed "
+        "deliberately, and the reproducibility it bought is noted in the code"
+    )
+
+
+def test_a_failure_carries_the_providers_reason() -> None:
+    """`Anthropic returned HTTP 400.` with nothing else is what turned a
+    one-line configuration bug into an unsearchable dead end."""
+    from palisade_sec.judge.anthropic import _why
+
+    class _Resp:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def json(self):
+            if self._payload is None:
+                raise ValueError("not json")
+            return self._payload
+
+    assert _why(_Resp({"error": {"message": "`temperature` is deprecated"}})) == (
+        "`temperature` is deprecated"
+    )
+    assert _why(_Resp(None)) == "no reason given"
+    assert _why(_Resp({"nope": 1})) == "no reason given"
+
+
+def test_the_reason_is_bounded_and_takes_only_the_message() -> None:
+    """The message cannot contain the API key, but the surrounding body can
+    echo the request - which carries the scanned code. So only `error.message`
+    is read, and it is still bounded, because it is text from outside."""
+    from palisade_sec.judge.anthropic import _why
+
+    class _Resp:
+        def json(self):
+            return {"error": {"message": "x" * 5000}, "echo": {"messages": "SECRET CODE"}}
+
+    out = _why(_Resp())
+    assert len(out) <= 300
+    assert "SECRET" not in out

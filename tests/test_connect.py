@@ -297,8 +297,15 @@ def test_notify_requires_a_channel(isolated_store, tmp_path):
 
 
 def test_stored_llm_key_configures_the_judge(isolated_store, monkeypatch):
+    from conftest import REAL_STORED_JUDGE_SETTINGS
+
     from palisade_sec.judge import config as jconfig
 
+    # This is the test that asserts stored credentials reach the judge, so it
+    # opts back in to the real keychain reader that conftest neutralizes for
+    # every other test. `isolated_store` points the store at a temp backend, so
+    # "real reader" here still means "nothing of the developer's".
+    monkeypatch.setattr(jconfig, "_stored_judge_settings", REAL_STORED_JUDGE_SETTINGS)
     monkeypatch.setattr(jconfig, "_dotenv_values", lambda: {})
     store.set_credential(store.LLM_PROVIDER, "anthropic")
     store.set_credential(store.LLM_KEY, "sk-ant-test")
