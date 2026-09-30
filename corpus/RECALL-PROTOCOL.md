@@ -33,6 +33,42 @@ you can read in a table and then publishing the resulting recall is fitting to
 the test set: the number goes up, the tool does not get better, and the first
 person who runs it on repo #27 finds out.
 
+## Ground truth is known-incomplete, and that biases recall upward
+
+On 2026-09-30 the engine reported a sink in `crewai` that carried no label. It
+was not a false positive: `singlestore_search_tool.py:399` hands a tool
+argument straight to `cursor.execute`, and the tool's own docstring calls it
+"The SQL query to execute". It is a **sibling** of an existing label - same
+shape, same directory - and reading the family by hand turned up a second one
+(`nl2sql_tool.py:486`).
+
+That is not two missing labels. It is evidence about the whole corpus:
+
+> **The train side has undercounted real paths, so train recall has been
+> measured against an incomplete denominator from the beginning. The held-out
+> side is labelled by the same kind of pass and is very likely undercounted
+> too. Every recall figure this project publishes is therefore, if anything, an
+> OVERESTIMATE: the numerator is what the engine found, and the denominator is
+> smaller than the truth.**
+
+The held-out undercount cannot be corrected. Hand-auditing held-out families
+now would be relabelling after measurement, which is the one-way door walked
+backwards, and it would be done with the engine's output in view. So it stands
+as a recorded limitation rather than a fixed defect.
+
+Two things follow, and both are permanent:
+
+- **A recall figure is an upper bound on a lower bound.** Quote it as measured,
+  never as "the recall", and never argue from it that a repo is clean.
+- **A found-but-unlabelled sink is triage, not a false positive, until a human
+  reads it.** `scripts/precision.py --triage` exists for exactly this, and the
+  outcome is recorded in the manifest with its provenance - including which
+  labels were added because the engine pointed at them.
+
+Said plainly because a reviewer will otherwise find an unlabelled sibling and
+conclude the benchmark is sloppy. It is incomplete, the incompleteness is
+directional, and the direction is against us.
+
 ## The rule, in one line
 
 > **A recall number is only publishable if it was measured on paths whose

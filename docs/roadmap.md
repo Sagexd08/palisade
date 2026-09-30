@@ -292,6 +292,52 @@ visible when the SDK call is not syntactically present.
 **once**. Measuring after each fix and stopping when the number moves is a soft
 form of fitting, and it is the version of fitting that feels like diligence.
 
+## Next: a rule family for the agent-framework shape
+
+Not a gap closure. The measurement on 2026-09-30 showed the two documented gaps
+cannot move held-out at all, because they do not describe its shape. This does.
+
+**The capability being built:** resolve the type of an attribute or a local
+through what was assigned to it, so that a call on that object can be recognised
+as an LLM call or as a dangerous sink even though neither is visible at the call
+site. Both halves of the agent-framework shape need it.
+
+### Specified from train misses only, by coordinate and verbatim sink
+
+Written before any code, as with the last pass. These are the train paths that
+need attribute-type resolution and nothing else was consulted.
+
+| train path | verbatim sink | what the resolution has to see |
+|---|---|---|
+| `griptape` griptape/drivers/sql/sql_driver.py:37 | `results = con.execute(sqlalchemy.text(query))` | the tool calls `self.sql_driver.execute_query(query)`; the sink is in the driver, one object boundary away |
+| `dspy` dspy/predict/program_of_thought.py:188 | `result = interpreter.execute(code)` | `code` came from `self.code_generate(...)`, an attribute assigned `dspy.ChainOfThought(...)` in `__init__` - the LLM call is invisible without resolving the attribute |
+| `dspy` dspy/predict/rlm.py:707 | `return repl.execute(code, variables=dict(input_args))` | same: `self.generate_action` / `self.extract` are `dspy.Predict(...)` instances |
+| `anthropic-sdk` src/anthropic/lib/tools/agent_toolset.py:500 | `await stdin.send(wrapped.encode())` | the sink is a write to a held subprocess's stdin, reached through a registry-dispatched tool |
+
+Those four are the specification. If building it requires looking at a held-out
+miss to know what to do, **stop** - that is the signal the train misses are not a
+sufficient spec, and continuing means fitting to the test set. The held-out set
+stays closed until the single post-build measurement.
+
+This wall matters more on this pass than the last one. The held-out half is
+*full* of this shape and I know it, so the pull toward "just check what they have
+in common" is far stronger than it was for two narrow gaps. Knowing the shape is
+common is not a licence to read the instances.
+
+### Pre-committed: one measurement, whatever it says
+
+The two gaps could not move held-out. This family describes held-out's shape, so
+if it works the number may jump from 0/45 to something substantial in a single
+run. That is the good outcome and it is also the one most likely to invite a
+re-run "to check", then a tweak, then another run.
+
+**One measurement. Reported with all three denominators and its upper bound.
+Then stop.** A large favourable move measured once is a result; the same move
+arrived at by tuning against held-out is fitting with extra steps, and it would
+be indistinguishable from the real thing in the final number.
+
+Recorded in advance so the commitment predates the temptation.
+
 - **Method calls on objects.** Resolve `obj.method(x)` and
   `self.attr.method(x)` through constructor and attribute types (abstract
   executors, SQL drivers), and model code-execution sinks reached that way

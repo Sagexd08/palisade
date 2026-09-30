@@ -214,6 +214,16 @@ no reasons - writing the reason is what converts a held-out path into a training
 example - and `scripts/precision.py` suppresses their coordinates unless
 `--held-out-detail` is passed.
 
+**Ground truth here is known-incomplete, and the bias is against us.** In
+September an audit labelled one `crewai` tool and missed two real siblings in
+the same directory; the engine found one of them on 2026-09-30 and reading the
+family by hand found the other. Train recall has therefore been measured against
+a denominator smaller than the truth, and the held-out half, labelled by the
+same kind of pass, is very likely undercounted too. It cannot be corrected -
+hand-auditing held-out families after a measurement is relabelling with the
+engine's output in view - so it is recorded instead: **every recall number here
+is, if anything, an overestimate.** See `corpus/RECALL-PROTOCOL.md`.
+
 **Misses are recorded, not hidden.** PandasAI's exec sits behind pipeline step
 objects dispatched dynamically at runtime, which bounded static taint cannot
 follow. A 2026-09-22 audit of the clean repos found 7 more real paths, every one

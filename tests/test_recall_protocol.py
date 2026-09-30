@@ -653,3 +653,22 @@ def test_the_leak_tripwire_still_fires_on_a_real_mention() -> None:
     assert not re.search(r"(?<![A-Za-z0-9])agno(?![A-Za-z0-9])", diagnosed), (
         "the boundary fix did not take: `agno` still matches inside `diagnosed`"
     )
+
+
+def test_the_protocol_records_that_ground_truth_is_incomplete() -> None:
+    """The caveat has to survive editing, because it is the one that protects
+    every recall number in the project.
+
+    A reviewer who finds an unlabelled sibling of a labelled path - and one
+    exists, that is how this was discovered - will otherwise conclude the
+    benchmark is sloppy rather than incomplete in a direction we declared. The
+    direction is the load-bearing part: the numerator is what the engine found
+    and the denominator is smaller than the truth, so a published recall figure
+    is an overestimate.
+    """
+    text = PROTOCOL.read_text(encoding="utf-8")
+    assert "known-incomplete" in text, "the incompleteness caveat is gone"
+    assert "OVERESTIMATE" in text or "overestimate" in text, (
+        "the caveat must state the DIRECTION of the bias, not merely that one exists"
+    )
+    assert "singlestore" in text, "the caveat must name the path that revealed it"
