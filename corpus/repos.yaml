@@ -269,27 +269,408 @@ repos:
   #
   # ref is left unset so fetch.py records the resolved SHA in repos.lock.json;
   # any repo that ends up carrying a label gets its ref pinned to that SHA.
-  - {name: agno,             url: https://github.com/agno-agi/agno,                           kind: clean, split: held-out}
-  - {name: autogpt,          url: https://github.com/Significant-Gravitas/AutoGPT,            kind: clean, split: held-out}
-  - {name: browser-use,      url: https://github.com/browser-use/browser-use,                 kind: clean, split: held-out}
-  - {name: camel,            url: https://github.com/camel-ai/camel,                          kind: clean, split: held-out}
-  - {name: db-gpt,           url: https://github.com/eosphoros-ai/DB-GPT,                     kind: clean, split: held-out}
+  - name: agno
+    url: https://github.com/agno-agi/agno
+    ref: c0642f495cb9b7065ae3f666f466f1e0b2483418
+    kind: audited
+    split: held-out
+    expect:
+      - {file: cookbook/02_agents/10_human_in_the_loop/external_tool_execution.py, line: 29, capability: shell, verdict: flag, group: b,
+         mitigation: "command must start with ls (prefix check only, with shell=True); the run pauses for external execution first",
+         code: "return subprocess.check_output(command, shell=True).decode(\"utf-8\")"}
+      - {file: libs/agno/agno/tools/code/kernel.py, line: 614, capability: exec, verdict: flag, group: a,
+         mitigation: "none; allow_shell=False only strips shell magics and is documented as not a security boundary",
+         code: "msg_id = self.kc.execute(code, silent=False, store_history=True, allow_stdin=False, stop_on_error=True)"}
+      - {file: libs/agno/agno/tools/coding.py, line: 628, capability: shell, verdict: flag, group: a,
+         mitigation: "enable_run_shell default False (on in the in-repo wiring); with restrict_to_base_dir=True the command is allowlisted, interpreter -c forms rejected, no shell",
+         code: "result = subprocess.run("}
+      - {file: libs/agno/agno/tools/crawl4ai.py, line: 120, capability: http, verdict: flag, group: a,
+         mitigation: "none",
+         code: "result = await crawler.arun(url=url, config=config)"}
+      - {file: libs/agno/agno/tools/daytona.py, line: 264, capability: exec, verdict: flag, group: a,
+         mitigation: "runs in a remote Daytona sandbox",
+         code: "response = current_sandbox.process.code_run(code)"}
+      - {file: libs/agno/agno/tools/docker.py, line: 352, capability: exec, verdict: flag, group: a,
+         mitigation: "runs inside a container, but both container id and command come from the model",
+         code: "exit_code, output = container.exec_run(command)"}
+      - {file: libs/agno/agno/tools/duckdb.py, line: 140, capability: sql, verdict: flag, group: a,
+         mitigation: "backticks stripped and only the first semicolon-separated statement is run",
+         code: "query_result = self.connection.sql(formatted_sql)"}
+      - {file: libs/agno/agno/tools/e2b.py, line: 102, capability: exec, verdict: flag, group: a,
+         mitigation: "runs in a remote E2B sandbox",
+         code: "execution = self.sandbox.run_code(executable_code)"}
+      - {file: libs/agno/agno/tools/postgres.py, line: 127, capability: sql, verdict: flag, group: a,
+         mitigation: "none; params is None on this path and the statement text is model-built",
+         code: "cursor.execute(query, params)"}
+      - {file: libs/agno/agno/tools/python.py, line: 202, capability: exec, verdict: flag, group: a,
+         mitigation: "none by default; requires_confirmation_tools exists but the in-repo wiring leaves execution ungated",
+         code: "exec(code, self.safe_globals, self.safe_locals)"}
+      - {file: libs/agno/agno/tools/redshift.py, line: 207, capability: sql, verdict: flag, group: a,
+         mitigation: "none; params is None on this path and the statement text is model-built",
+         code: "cursor.execute(query, params)"}
+      - {file: libs/agno/agno/tools/shell.py, line: 55, capability: shell, verdict: flag, group: a,
+         mitigation: "the in-repo wiring sets requires_confirmation_tools for run_shell_command, so the run pauses for approval",
+         code: "result = subprocess.run("}
+      - {file: libs/agno/agno/tools/sql.py, line: 148, capability: sql, verdict: flag, group: a,
+         mitigation: "none",
+         code: "result = sess.execute(text(sql))"}
+      - {file: libs/agno/agno/tools/workspace.py, line: 1033, capability: shell, verdict: flag, group: a,
+         mitigation: "argv list, not a shell; confirmation available but the in-repo wiring passes confirm=[]",
+         code: "result = subprocess.run("}
+  - name: autogpt
+    url: https://github.com/Significant-Gravitas/AutoGPT
+    ref: c035ab1f91b8556f86e87be26dcaf31677f64ba5
+    kind: audited
+    split: held-out
+    expect:
+      - {file: autogpt_platform/backend/backend/copilot/tools/bash_exec.py, line: 226, capability: shell, verdict: flag, group: b,
+         mitigation: "runs in a remote E2B container; requires an authenticated user; secrets redacted from output",
+         code: "result = await sandbox.commands.run("}
+      - {file: autogpt_platform/backend/backend/copilot/tools/sandbox.py, line: 243, capability: shell, verdict: flag, group: b,
+         mitigation: "refuses to run without bubblewrap; whitelist-only filesystem, no network, scrubbed env, timeout",
+         code: "proc = await asyncio.create_subprocess_exec("}
+      - {file: autogpt_platform/backend/backend/copilot/tools/web_fetch.py, line: 119, capability: http, verdict: flag, group: b,
+         mitigation: "validate_url rejects SSRF and blocked-IP targets; GET only",
+         code: "response = await client.get(url, timeout=_REQUEST_TIMEOUT)"}
+      - {file: classic/forge/forge/components/code_executor/code_executor.py, line: 258, capability: exec, verdict: flag, group: a,
+         mitigation: "registered only when Docker is available or the app is containerised; runs directly when already inside a container, otherwise a single-use container; optional permission manager, None by default",
+         code: "result = subprocess.run("}
+      - {file: classic/forge/forge/components/code_executor/code_executor.py, line: 368, capability: shell, verdict: flag, group: a,
+         mitigation: "execute_local_commands default False (command not registered); when enabled an allow/deny name check applies and shell stays False",
+         code: "result = subprocess.run("}
+  - name: browser-use
+    url: https://github.com/browser-use/browser-use
+    ref: 4cbe921673b48a488f5415d9159249afd12a625b
+    kind: audited
+    split: held-out
+    expect:
+      - {file: browser_use/browser/session.py, line: 1056, capability: http, verdict: flag, group: a,
+         mitigation: "SecurityWatchdog rejects URLs outside allowed_domains, pre-navigation and on redirect; unrestricted when allowed_domains is unset, which is the default",
+         code: "cdp_session.cdp_client.send.Page.navigate("}
+      - {file: browser_use/tools/service.py, line: 1847, capability: exec, verdict: flag, group: a,
+         mitigation: "none; _validate_and_fix_javascript is a syntax-repair pass, not a restriction",
+         code: "result = await cdp_session.cdp_client.send.Runtime.evaluate("}
+  - name: camel
+    url: https://github.com/camel-ai/camel
+    ref: fc27907e31ea2074d6b65ceb121573c5fa1ab345
+    kind: audited
+    split: held-out
+    expect:
+      - {file: camel/toolkits/code_execution.py, line: 151, capability: exec, verdict: flag, group: a,
+         mitigation: "default subprocess sandbox resolves require_confirm to True - interactive y/N prompt before each run; docker/e2b/jupyter sandboxes available by config",
+         code: "output = self.interpreter.run(code, code_type)"}
+      - {file: camel/toolkits/code_execution.py, line: 170, capability: shell, verdict: flag, group: a2,
+         mitigation: "same interactive require_confirm gate, True by default",
+         code: "output = self.interpreter.execute_command(command)"}
+      - {file: camel/toolkits/terminal_toolkit/terminal_toolkit.py, line: 838, capability: shell, verdict: flag, group: b,
+         mitigation: "safe_mode=True by default - sanitize_command blocklist plus working-directory confinement",
+         code: "proc = subprocess.Popen("}
+      - {file: camel/toolkits/terminal_toolkit/terminal_toolkit.py, line: 1037, capability: shell, verdict: flag, group: b,
+         mitigation: "safe_mode=True by default - sanitize_command blocklist",
+         code: "process = subprocess.Popen("}
+  - name: db-gpt
+    url: https://github.com/eosphoros-ai/DB-GPT
+    ref: d1d398eb7ab2b2b3c9dc53fa376594a3600a7458
+    kind: audited
+    split: held-out
+    expect:
+      - {file: examples/agents/excel_data_agent.py, line: 124, capability: exec, verdict: flag, group: h,
+         mitigation: "none - runs in the host process with full builtins",
+         code: "exec(compiled_code, GLOBAL_EXECUTION_CONTEXT)"}
+      - {file: packages/dbgpt-app/src/dbgpt_app/openapi/api_v1/tools/code_interpreter.py, line: 39, capability: exec, verdict: flag, group: g,
+         mitigation: "argv-list spawn with a 60s timeout and a syntax pre-check; no sandbox",
+         code: "proc = await asyncio.create_subprocess_exec("}
+      - {file: packages/dbgpt-app/src/dbgpt_app/openapi/api_v1/tools/shell_interpreter.py, line: 74, capability: shell, verdict: flag, group: g,
+         mitigation: "LocalRuntime session with a pattern-based code check, 256MB cap and 30s timeout; no OS-level isolation",
+         code: "result = await session.execute(code)"}
+      - {file: packages/dbgpt-app/src/dbgpt_app/scene/chat_db/auto_execute/out_parser.py, line: 138, capability: sql, verdict: flag, group: a,
+         mitigation: "none - writes and DDL are executed as produced",
+         code: "df = data(prompt_response.sql)"}
+      - {file: packages/dbgpt-core/src/dbgpt/agent/expand/actions/chart_action.py, line: 83, capability: sql, verdict: flag, group: c,
+         mitigation: "none",
+         code: "data_df = await db.query_to_df(param.sql)"}
+      - {file: packages/dbgpt-core/src/dbgpt/agent/expand/actions/dashboard_action.py, line: 99, capability: sql, verdict: flag, group: c,
+         mitigation: "none",
+         code: "sql_df = await db.query_to_df(chart_item.sql)"}
+      - {file: packages/dbgpt-core/src/dbgpt/agent/expand/actions/insert_action.py, line: 150, capability: sql, verdict: flag, group: c,
+         mitigation: "none",
+         code: "await db.async_execute(sql=sql)"}
+      - {file: packages/dbgpt-core/src/dbgpt/agent/skill/manage.py, line: 412, capability: exec, verdict: flag, group: f,
+         mitigation: "lyric code server sandbox; arguments inserted with Template.safe_substitute",
+         code: "result = await code_server.exec(substituted_code, language)"}
+      - {file: packages/dbgpt-core/src/dbgpt/agent/skill/manage.py, line: 903, capability: exec, verdict: flag, group: f,
+         mitigation: "lyric code server sandbox",
+         code: "result = await code_server.exec(exec_code, language)"}
+      - {file: packages/dbgpt-core/src/dbgpt/agent/skill/manage.py, line: 1031, capability: exec, verdict: flag, group: f,
+         mitigation: "argv-list spawn with a 120s timeout; can be disabled by config; no sandbox",
+         code: "proc = await asyncio.create_subprocess_exec("}
+      - {file: packages/dbgpt-core/src/dbgpt/agent/util/api_call.py, line: 386, capability: sql, verdict: flag, group: b,
+         mitigation: "none",
+         code: "data_df = sql_run_func(sql)"}
+      - {file: packages/dbgpt-core/src/dbgpt/util/code_utils.py, line: 275, capability: exec, verdict: flag, group: e,
+         mitigation: "Docker when the docker package is importable, otherwise native execution with a timeout",
+         code: "future = executor.submit("}
+      - {file: packages/dbgpt-ext/src/dbgpt_ext/rag/retriever/graph_retriever/text_based_graph_retriever.py, line: 45, capability: sql, verdict: flag, group: d,
+         mitigation: "none; a LIMIT clause is appended if absent",
+         code: "subgraph = self._graph_store_adapter.query(query=text2gql_query)"}
   - {name: e2b,              url: https://github.com/e2b-dev/e2b,                             kind: clean, split: held-out}
-  - {name: gorilla,          url: https://github.com/ShishirPatil/gorilla,                    kind: clean, split: held-out}
+  - name: gorilla
+    url: https://github.com/ShishirPatil/gorilla
+    ref: 6ea57973c7a6097fd7c5915698c54c17c5b1b6c8
+    kind: audited
+    split: held-out
+    expect:
+      - {file: berkeley-function-call-leaderboard/bfcl_eval/eval_checker/multi_turn_eval/func_source_code/web_search.py, line: 250, capability: http, verdict: flag, group: d,
+         mitigation: "URL must start with http:// or https://",
+         code: "response = requests.get(url, headers=headers, timeout=20, allow_redirects=True)"}
+      - {file: berkeley-function-call-leaderboard/bfcl_eval/eval_checker/multi_turn_eval/multi_turn_utils.py, line: 83, capability: exec, verdict: flag, group: d,
+         mitigation: "leading name checked against a small deny-list",
+         code: "func_call_result = eval(func_call)"}
+      - {file: goex/exec_engine/db_manager.py, line: 159, capability: sql, verdict: flag, group: a,
+         mitigation: "interactive Yes/No confirmation of the generated statement; option 2 keeps it in a rollback-able transaction",
+         code: "self.cursor.execute(command)"}
+      - {file: goex/exec_engine/db_manager.py, line: 261, capability: sql, verdict: flag, group: a,
+         mitigation: "interactive Yes/No confirmation; option 2 keeps it in a rollback-able transaction",
+         code: "self.cursor.execute(call)"}
+      - {file: goex/exec_engine/docker_sandbox.py, line: 79, capability: exec, verdict: flag, group: c,
+         mitigation: "per-call Docker container; no pre-execution confirmation",
+         code: "container = self.client.containers.run("}
+      - {file: goex/exec_engine/fs_manager.py, line: 43, capability: shell, verdict: flag, group: b,
+         mitigation: "interactive Yes/No confirmation of the generated command; git-based undo",
+         code: "return subprocess.call(command, shell=True, cwd=self.fs_path)"}
   - {name: julep,            url: https://github.com/julep-ai/julep,                          kind: clean, split: train}
-  - {name: langchain,        url: https://github.com/langchain-ai/langchain,                  kind: clean, split: held-out}
-  - {name: langroid,         url: https://github.com/langroid/langroid,                       kind: clean, split: held-out}
-  - {name: lavague,          url: https://github.com/lavague-ai/LaVague,                      kind: clean, split: train}
+  - name: langchain
+    url: https://github.com/langchain-ai/langchain
+    ref: a9780cd3dd73135d21d7130b08711685f2700d51
+    kind: audited
+    split: held-out
+    expect:
+      - {file: libs/langchain/langchain_classic/chains/api/base.py, line: 300, capability: http, verdict: flag, group: a,
+         mitigation: "limit_to_domains must be passed at construction and the URL is checked against that allowlist; passing None disables it; class deprecated",
+         code: "api_response = self.requests_wrapper.get(api_url)"}
+      - {file: libs/langchain/langchain_classic/chains/api/base.py, line: 345, capability: http, verdict: flag, group: a,
+         mitigation: "same limit_to_domains allowlist, bypassable with None; class deprecated",
+         code: "api_response = await self.requests_wrapper.aget(api_url)"}
+      - {file: libs/langchain/langchain_classic/chains/elasticsearch_database/base.py, line: 113, capability: sql, verdict: flag, group: b,
+         mitigation: "none; the source itself annotates the generation step as having no checker",
+         code: "result = self.database.search(index=\",\".join(indices), body=query)"}
+  - name: langroid
+    url: https://github.com/langroid/langroid
+    ref: 20aa8eb1a11ba8d590c04803517fbcf6878fe7ad
+    kind: audited
+    split: held-out
+    expect:
+      - {file: examples/basic/done_sequences_example.py, line: 45, capability: exec, verdict: flag, group: g,
+         mitigation: "none",
+         code: "result = eval(self.expression)"}
+      - {file: examples/basic/python-code-exec-tool.py, line: 45, capability: exec, verdict: flag, group: f,
+         mitigation: "none; a CAUTION note in the module docstring only",
+         code: "exec(code_string, globals(), local_vars)"}
+      - {file: langroid/agent/special/arangodb/arangodb_agent.py, line: 299, capability: sql, verdict: flag, group: d,
+         mitigation: "validate_aql_query rejects modification operations; skipped when allow_dangerous_operations=True",
+         code: "cursor = self.db.aql.execute(query, bind_vars=bind_vars)"}
+      - {file: langroid/agent/special/arangodb/arangodb_agent.py, line: 329, capability: sql, verdict: flag, group: d,
+         mitigation: "validate_aql_query write blocklist; skipped when allow_dangerous_operations=True",
+         code: "self.db.aql.execute(query, bind_vars=bind_vars)"}
+      - {file: langroid/agent/special/neo4j/neo4j_chat_agent.py, line: 231, capability: sql, verdict: flag, group: c,
+         mitigation: "validate_cypher_query rejects write clauses; skipped when allow_dangerous_operations=True",
+         code: "result = session.run(query, parameters)"}
+      - {file: langroid/agent/special/neo4j/neo4j_chat_agent.py, line: 284, capability: sql, verdict: flag, group: c,
+         mitigation: "validate_cypher_query write blocklist; skipped when allow_dangerous_operations=True",
+         code: "session.write_transaction(lambda tx: tx.run(query, parameters))"}
+      - {file: langroid/agent/special/sql/sql_chat_agent.py, line: 846, capability: sql, verdict: flag, group: b,
+         mitigation: "allowed_statement_types defaults to [SELECT] enforced by sqlglot parse, plus a dangerous-pattern blocklist; all skipped when allow_dangerous_operations=True",
+         code: "query_result = session.execute(text(query))"}
+      - {file: langroid/agent/special/table_chat_agent.py, line: 242, capability: exec, verdict: flag, group: a,
+         mitigation: "sanitize_command plus curated __builtins__ unless full_eval=True (default False)",
+         code: "eval_result = eval(code, safe_eval_globals(vars), {})"}
+      - {file: langroid/vector_store/base.py, line: 307, capability: exec, verdict: flag, group: e,
+         mitigation: "sanitize_command and restricted __builtins__ unless full_eval=True (default False)",
+         code: "result = eval(code, safe_eval_globals(vars), {})"}
+  - name: lavague
+    url: https://github.com/lavague-ai/LaVague
+    ref: 9024bb832c40291cd012916757f27ef60469b22d
+    kind: audited
+    split: train
+    expect:
+      - {file: lavague-core/lavague/core/extractors.py, line: 140, capability: exec, verdict: flag, group: a,
+         mitigation: "none",
+         code: "return eval(self.extract(text))"}
   - {name: letta,            url: https://github.com/letta-ai/letta,                          kind: clean, split: train}
-  - {name: llama-index,      url: https://github.com/run-llama/llama_index,                   kind: clean, split: held-out}
+  - name: llama-index
+    url: https://github.com/run-llama/llama_index
+    ref: 7e2c60a78ec27e8d146dfdd596778aea83c041d5
+    kind: audited
+    split: held-out
+    expect:
+      - {file: llama-index-core/llama_index/core/indices/property_graph/sub_retrievers/text_to_cypher.py, line: 149, capability: sql, verdict: flag, group: b,
+         mitigation: "optional caller-supplied cypher_validator, default None",
+         code: "query_output = self._graph_store.structured_query(parsed_cypher_query)"}
+      - {file: llama-index-core/llama_index/core/indices/property_graph/sub_retrievers/text_to_cypher.py, line: 194, capability: sql, verdict: flag, group: b,
+         mitigation: "optional caller-supplied cypher_validator, default None",
+         code: "query_output = await self._graph_store.astructured_query(parsed_cypher_query)"}
+      - {file: llama-index-core/llama_index/core/query_engine/knowledge_graph_query_engine.py, line: 161, capability: sql, verdict: flag, group: c,
+         mitigation: "none",
+         code: "graph_store_response = self.graph_store.query(query=graph_store_query)"}
+      - {file: llama-index-core/llama_index/core/utilities/sql_wrapper.py, line: 260, capability: sql, verdict: flag, group: a,
+         mitigation: "none on the statement; sql_only=True returns the query without running it (default False)",
+         code: "cursor = connection.execute(text(command))"}
+      - {file: llama-index-integrations/program/llama-index-program-evaporate/llama_index/program/evaporate/extractor.py, line: 360, capability: exec, verdict: flag, group: d,
+         mitigation: "AST check, restricted-builtins sandbox with no __import__/eval/exec/open, and a 1s time limit",
+         code: "exec(fn_str, sandbox)"}
   - {name: mcp-python-sdk,   url: https://github.com/modelcontextprotocol/python-sdk,         kind: clean, split: held-out}
-  - {name: metagpt,          url: https://github.com/geekan/MetaGPT,                          kind: clean, split: held-out}
+  - name: metagpt
+    url: https://github.com/geekan/MetaGPT
+    ref: 11cdf466d042aece04fc6cfd13b28e1a70341b1f
+    kind: audited
+    split: held-out
+    expect:
+      - {file: examples/build_customized_agent.py, line: 48, capability: exec, verdict: flag, group: h,
+         mitigation: "none",
+         code: "result = subprocess.run([\"python3\", \"-c\", code_text], capture_output=True, text=True)"}
+      - {file: metagpt/actions/action_node.py, line: 581, capability: exec, verdict: flag, group: d,
+         mitigation: "reached only for list/dict-typed fields; a bare except swallows errors after evaluation",
+         code: "extracted_data[field_name] = eval(raw_value)"}
+      - {file: metagpt/actions/action_node.py, line: 588, capability: exec, verdict: flag, group: d,
+         mitigation: "reached only for list/dict-typed fields; a bare except swallows errors after evaluation",
+         code: "extracted_data[field_name] = eval(raw_value)"}
+      - {file: metagpt/actions/di/execute_nb_code.py, line: 232, capability: exec, verdict: flag, group: a,
+         mitigation: "none - in-process Jupyter kernel on the host; per-cell timeout only",
+         code: "await self.nb_client.async_execute_cell(cell, cell_index)"}
+      - {file: metagpt/actions/run_code.py, line: 106, capability: exec, verdict: flag, group: c,
+         mitigation: "10s process timeout; the driving role is commented out of the default team and wired live only in examples/ui_with_chainlit",
+         code: "process = subprocess.Popen("}
+      - {file: metagpt/environment/android/android_ext_env.py, line: 139, capability: shell, verdict: flag, group: i,
+         mitigation: "none",
+         code: "res = subprocess.run(adb_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)"}
+      - {file: metagpt/ext/aflow/scripts/operator.py, line: 148, capability: exec, verdict: flag, group: f,
+         mitigation: "substring denylist of import names; separate process with a 30s timeout",
+         code: "exec(code, global_namespace)"}
+      - {file: metagpt/ext/aflow/scripts/optimizer_utils/graph_utils.py, line: 31, capability: exec, verdict: flag, group: g,
+         mitigation: "none",
+         code: "graph_module = __import__(graph_module_name, fromlist=[\"\"])"}
+      - {file: metagpt/strategy/tot.py, line: 66, capability: exec, verdict: flag, group: e,
+         mitigation: "none",
+         code: "thoughts = eval(thoughts)"}
+      - {file: metagpt/tools/libs/browser.py, line: 132, capability: http, verdict: flag, group: b2,
+         mitigation: "none",
+         code: "await self.page.goto(url, timeout=timeout)"}
+      - {file: metagpt/tools/libs/terminal.py, line: 96, capability: shell, verdict: flag, group: b,
+         mitigation: "two-entry substring substitution list; Engineer2 additionally diverts pull/push/commit",
+         code: "self.process.stdin.write((cmd + self.command_terminator).encode())"}
   - {name: open-interpreter, url: https://github.com/OpenInterpreter/open-interpreter,        kind: clean, split: held-out}
-  - {name: openai-agents,    url: https://github.com/openai/openai-agents-python,             kind: clean, split: train}
+  - name: openai-agents
+    url: https://github.com/openai/openai-agents-python
+    ref: e6c680672ca6e046cece455358e86412bcad7a60
+    kind: audited
+    split: train
+    expect:
+      - {file: examples/sandbox/extensions/daytona/usaspending_text2sql/sql_capability.py, line: 133, capability: shell, verdict: flag, group: d,
+         mitigation: "runner rejects any statement not starting SELECT/WITH/EXPLAIN/PRAGMA, opens SQLite mode=ro with query_only=ON, row limits, 30s timeout, runs in the sandbox",
+         code: "result = await session.exec(command, timeout=timeout_seconds)"}
+      - {file: examples/sandbox/misc/workspace_shell.py, line: 45, capability: shell, verdict: flag, group: b,
+         mitigation: "runs inside a SandboxSession (Docker, Modal or unix-local); ShellTool registered with no approval requirement",
+         code: "result = await self._session.exec(command, timeout=timeout_s, shell=True)"}
+      - {file: examples/tools/shell.py, line: 44, capability: shell, verdict: flag, group: a,
+         mitigation: "ShellTool registered with needs_approval=True plus an interactive prompt that denies when stdin is not a TTY; child env reduced to PATH; no isolation from host files or network",
+         code: "proc = await asyncio.create_subprocess_shell("}
+      - {file: src/agents/sandbox/capabilities/tools/shell_tool.py, line: 108, capability: shell, verdict: flag, group: c,
+         mitigation: "runs inside a SandboxSession; command wrapped with a cd into the workspace scope; per-tool needs_approval unset by default",
+         code: "result = await session.exec(command, timeout=timeout_s, shell=shell, user=user)"}
   - {name: openhands,        url: https://github.com/All-Hands-AI/OpenHands,                  kind: clean, split: held-out}
-  - {name: qwen-agent,       url: https://github.com/QwenLM/Qwen-Agent,                       kind: clean, split: held-out}
-  - {name: smolagents,       url: https://github.com/huggingface/smolagents,                  kind: clean, split: held-out}
-  - {name: strands,          url: https://github.com/strands-agents/sdk-python,               kind: clean, split: held-out}
-  - {name: superagi,         url: https://github.com/TransformerOptimus/SuperAGI,             kind: clean, split: held-out}
-  - {name: swe-agent,        url: https://github.com/SWE-agent/SWE-agent,                     kind: clean, split: held-out}
-  - {name: taskweaver,       url: https://github.com/microsoft/TaskWeaver,                    kind: clean, split: held-out}
+  - name: qwen-agent
+    url: https://github.com/QwenLM/Qwen-Agent
+    ref: 31a4d36d123688581a9e9744427272b33ce940e0
+    kind: audited
+    split: held-out
+    expect:
+      - {file: qwen_agent/agents/group_chat.py, line: 163, capability: handoff, verdict: flag, group: c,
+         mitigation: "none",
+         code: "for rsp in selected_agent.run(messages=new_messages, **kwargs):"}
+      - {file: qwen_agent/agents/router.py, line: 85, capability: handoff, verdict: flag, group: c,
+         mitigation: "an unrecognised name falls back to the first configured agent",
+         code: "for response in selected_agent.run(messages=new_messages, lang=lang, **kwargs):"}
+      - {file: qwen_agent/tools/code_interpreter.py, line: 344, capability: exec, verdict: flag, group: b,
+         mitigation: "Jupyter kernel inside a Docker container with only work_dir bind-mounted; injected timeout",
+         code: "kc.execute(code)"}
+      - {file: qwen_agent/tools/python_executor.py, line: 49, capability: exec, verdict: flag, group: a,
+         mitigation: "regex rejects code containing input( or os.system(; worker process under a timeout; not registered by default but instantiated directly by TIRMathAgent",
+         code: "exec(code_piece, self._global_vars)"}
+  - name: smolagents
+    url: https://github.com/huggingface/smolagents
+    ref: 227ef5e49ddd82339295939072f0223249aa8d38
+    kind: audited
+    split: held-out
+    expect:
+      - {file: examples/open_deep_research/scripts/text_web_browser.py, line: 277, capability: http, verdict: flag, group: c,
+         mitigation: "none; file:// is also accepted and read from disk",
+         code: "response = requests.get(url, **request_kwargs)"}
+      - {file: src/smolagents/agents.py, line: 1726, capability: exec, verdict: flag, group: a,
+         mitigation: "local AST interpreter with import allowlist, blocked builtins, op/print caps and a timeout is the default; sandboxes opt-in; allowlist removed by additional_authorized_imports=[*]",
+         code: "code_output = self.python_executor(code_action)"}
+      - {file: src/smolagents/default_tools.py, line: 72, capability: exec, verdict: flag, group: b,
+         mitigation: "same allowlisted AST interpreter plus an execution timeout; tool present only with add_base_tools=True",
+         code: "self.python_evaluator("}
+      - {file: src/smolagents/default_tools.py, line: 528, capability: http, verdict: flag, group: b,
+         mitigation: "20s timeout and output truncation only; no scheme or host restriction",
+         code: "response = requests.get(url, timeout=20)"}
+  - name: strands
+    url: https://github.com/strands-agents/sdk-python
+    ref: a9a62d4e3ce0ce8401ec74f56deb55d005fca502
+    kind: audited
+    split: held-out
+    expect:
+      - {file: strands-py/src/strands/sandbox/not_a_sandbox_local_environment.py, line: 79, capability: shell, verdict: flag, group: a,
+         mitigation: "none - the default execution environment, named and documented as no isolation; Docker or SSH sandboxes configurable; timeout only",
+         code: "async for chunk in _stream_process(\"sh\", [\"-c\", full_command], timeout=timeout):"}
+      - {file: strands-py/src/strands/vended_tools/http_request/http_request.py, line: 179, capability: http, verdict: flag, group: a,
+         mitigation: "none - method, URL, headers and body all come from the model",
+         code: "response = await active_client.send(request, stream=True)"}
+  - name: superagi
+    url: https://github.com/TransformerOptimus/SuperAGI
+    ref: c3c1982e7bd6a11cfed53c5a193ea502f924b1b6
+    kind: audited
+    split: held-out
+    expect:
+      - {file: superagi/agent/output_handler.py, line: 149, capability: exec, verdict: flag, group: a,
+         mitigation: "none; only a JSON-array slice from the first [ to the last ]",
+         code: "tasks = eval(assistant_reply)"}
+      - {file: superagi/agent/output_handler.py, line: 180, capability: exec, verdict: flag, group: a,
+         mitigation: "none; only a JSON-array slice",
+         code: "tasks = eval(assistant_reply)"}
+      - {file: superagi/agent/queue_step_handler.py, line: 79, capability: exec, verdict: flag, group: a,
+         mitigation: "none; only a JSON-array slice",
+         code: "task_array = np.array(eval(assistant_reply)).flatten().tolist()"}
+      - {file: superagi/helper/webpage_extractor.py, line: 101, capability: http, verdict: flag, group: b,
+         mitigation: "10s timeout; toolkit auto-registered at startup and not marked permission_required",
+         code: "response = requests.get(url, headers=headers, timeout=10)"}
+  - name: swe-agent
+    url: https://github.com/SWE-agent/SWE-agent
+    ref: 3ea751c087f32b16e039a2233dd6eefecef325d5
+    kind: audited
+    split: held-out
+    expect:
+      - {file: sweagent/environment/swe_env.py, line: 221, capability: shell, verdict: flag, group: a,
+         mitigation: "runs inside the configured SWE-ReX deployment (Docker by default); ToolConfig blocklist and prefix checks, execution timeouts, consecutive-timeout abort",
+         code: "self.deployment.runtime.run_in_session(BashAction(command=input, timeout=timeout, check=rex_check))"}
+  - name: taskweaver
+    url: https://github.com/microsoft/TaskWeaver
+    ref: d44ddef23f90059fb17999d3095db4240e98f955
+    kind: audited
+    split: held-out
+    expect:
+      - {file: project/plugins/sql_pull_data.py, line: 62, capability: sql, verdict: flag, group: e,
+         mitigation: "ships enabled: false in sql_pull_data.yaml; prompt asks for a query only; no statement-type restriction, no parameterisation",
+         code: "result = self.db._execute(sql, fetch=\"all\")"}
+      - {file: taskweaver/ces/environment.py, line: 536, capability: exec, verdict: flag, group: a,
+         mitigation: "code_verification_on defaults False but is forced on for kernel_mode=local (AST allowed-module and blocked-function checks); kernel is a separate process, or a container under kernel_mode=container",
+         code: "result_msg_id = kc.execute("}
+      - {file: taskweaver/code_interpreter/code_interpreter_cli_only/code_interpreter_cli_only.py, line: 75, capability: shell, verdict: flag, group: b,
+         mitigation: "none; this role performs no code verification, and must be listed in session.roles",
+         code: "exec_result = self.executor.execute_code("}
+      - {file: taskweaver/ext_role/web_explorer/driver.py, line: 48, capability: http, verdict: flag, group: d,
+         mitigation: "none on the URL; the web_explorer role must be enabled in session.roles (not default)",
+         code: "self.driver.get(url)"}
+      - {file: taskweaver/session/session.py, line: 192, capability: handoff, verdict: flag, group: c,
+         mitigation: "recipient must match a configured role name; max_internal_chat_round_num caps the loop",
+         code: "reply_post = self.worker_instances[recipient].reply("}

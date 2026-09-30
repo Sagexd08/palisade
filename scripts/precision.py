@@ -78,7 +78,7 @@ class Metrics:
     # a planner reaching exec three ways is found three times or not at all -
     # are not independent samples, so a raw path count overstates how much
     # evidence the set holds. `{split: {(repo, group): was_any_found}}`.
-    groups_by_split: dict[str, dict[tuple[str, str], bool]] = field(default_factory=dict)
+    groups_by_split: dict[str, dict[tuple[str, str, str], bool]] = field(default_factory=dict)
 
     def recall_for(self, split: str) -> float | None:
         """Recall over one split, or None when that split has no paths.
@@ -90,6 +90,24 @@ class Metrics:
         tp = self.tp_by_split.get(split, 0)
         fn = self.fn_by_split.get(split, 0)
         return tp / (tp + fn) if (tp + fn) else None
+
+    def capability_recall_for(self, split: str) -> tuple[float, int, int] | None:
+        """The most pessimistic aggregation: one observation per (repo,
+        capability), whatever the labeller's grouping said.
+
+        Reported as a lower bound on the evidence, alongside the labeller's own
+        grouping, so the headline does not rest on a judgement call about how
+        correlated two paths in one repo really are. When the two disagree the
+        honest reading is the smaller one.
+        """
+        groups = self.groups_by_split.get(split)
+        if not groups:
+            return None
+        collapsed: dict[tuple[str, str], bool] = {}
+        for (repo, cap, _), found in groups.items():
+            collapsed[(repo, cap)] = collapsed.get((repo, cap), False) or found
+        hits = sum(1 for found in collapsed.values() if found)
+        return hits / len(collapsed), hits, len(collapsed)
 
     def group_recall_for(self, split: str) -> tuple[float, int, int] | None:
         """Recall over correlated groups, plus (hits, groups).
@@ -178,7 +196,15 @@ def _expected_groups(target: dict) -> dict[tuple[str, int, str], tuple[str, str]
             continue
         cap = e.get("capability") or _capability(e["rule"])
         key = (e["file"], int(e["line"]), cap)
-        out[key] = (name, str(e.get("group", f"{e['file']}:{e['line']}")))
+        # The capability is part of the group identity, so a `group:` tag that
+        # spans two capabilities splits automatically. Labellers do tag across
+        # capabilities - one batch put an exec sink and an http sink in the same
+        # group, another put thirteen paths spanning four capabilities in one -
+        # and paths that exercise different capabilities cannot plausibly be
+        # found or missed together. Enforced here rather than by editing the
+        # labeller's file, because the labeller is the one who was blind.
+        own = "{}:{}".format(e["file"], e["line"])
+        out[key] = (name, cap, str(e.get("group", own)))
     return out
 
 
@@ -416,15 +442,18 @@ def main() -> int:
                 print(f"  {label}  n/a      (no labelled paths in this split)")
             else:
                 print(f"  {label}  {value:.3f}    (tp={tp_s} fn={fn_s})")
-                grouped = m.group_recall_for(key)
-                if grouped is not None:
-                    rate, hits, total = grouped
-                    if total != tp_s + fn_s:
-                        # Only worth printing when grouping actually changed the
-                        # denominator; otherwise it is the same number twice.
+                paths = tp_s + fn_s
+                for kind, agg in (
+                    ("as labelled ", m.group_recall_for(key)),
+                    ("per capabil.", m.capability_recall_for(key)),
+                ):
+                    if agg is None:
+                        continue
+                    rate, hits, total = agg
+                    if total != paths:
                         print(
-                            f"            {rate:.3f}    ({hits}/{total} correlated "
-                            f"groups - effective n={total}, not {tp_s + fn_s})"
+                            f"            {rate:.3f}    ({hits}/{total} groups "
+                            f"{kind} - effective n={total}, not {paths})"
                         )
         if held is None:
             print(

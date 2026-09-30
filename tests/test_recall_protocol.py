@@ -117,10 +117,18 @@ def test_the_existing_paths_are_all_train(corpus: dict) -> None:
 
     Matching is on the full repo name, plus the base name when the suffix is one
     of the corpus's own version markers (`vanna-cve` and `vanna-later` are both
-    "vanna" in the prose). It deliberately does *not* split on the first hyphen:
-    that caught `pydantic-ai` on an unrelated sentence about pydantic body
-    params being taint sources, which would have disqualified a clean held-out
-    repo over a word it shares with a library.
+    "vanna" in the prose), and always on a separator boundary.
+
+    Both refinements came from false alarms, which is worth recording: a plain
+    substring match caught `agno` inside the word "di-agno-sed", and splitting
+    on the first hyphen caught `pydantic-ai` on a sentence about pydantic body
+    params. Each would have disqualified a clean held-out repo over a
+    coincidence of spelling.
+
+    The boundary treats `_` as a separator as well as punctuation, so a genuine
+    mention inside `langchain_community` still matches while `diagnosed` does
+    not. This check is a tripwire, not an oracle: when it fires, read the
+    surrounding sentence before retiring a repo.
     """
     held = [r["name"] for r in corpus["repos"] if r.get("expect") and r.get("split") == "held-out"]
     diagnosed = PROOF.read_text(encoding="utf-8")
@@ -132,7 +140,10 @@ def test_the_existing_paths_are_all_train(corpus: dict) -> None:
                 return [name, name[: -len(suffix)]]
         return [name]
 
-    leaked = [name for name in held if any(a in diagnosed for a in _aliases(name))]
+    def _mentioned(name: str) -> bool:
+        return bool(re.search(rf"(?<![A-Za-z0-9]){re.escape(name)}(?![A-Za-z0-9])", diagnosed))
+
+    leaked = [name for name in held if any(_mentioned(a) for a in _aliases(name))]
     assert not leaked, (
         "these are held-out but their misses are already explained in "
         f"docs/proof-scans.md, so the number they produce is not evidence: {leaked}"
@@ -565,3 +576,80 @@ def test_a_group_is_found_when_any_of_its_paths_is(Metrics) -> None:
     assert (hits, total) == (1, 3)
     assert abs(rate - 1 / 3) < 1e-9
     assert m.group_recall_for("train") is None, "an empty split reports None, never 1.000"
+
+
+def test_a_group_tag_cannot_span_two_capabilities(tmp_path: Path) -> None:
+    """Labellers tag across capabilities, so the split is enforced here.
+
+    One batch put an exec sink and an http sink under one group letter; another
+    put thirteen paths spanning four capabilities under one. Paths that exercise
+    different capabilities cannot plausibly be found or missed together, so a
+    shared tag across them would shrink the denominator for free. Enforced in
+    the scorer rather than by editing the labeller's file - the labeller is the
+    one who was blind, and their grouping within a capability is the judgement
+    worth keeping.
+    """
+    mod = _precision_module()
+    repo = tmp_path / "repos" / "fake"
+    repo.mkdir(parents=True)
+    (repo / "app.py").write_text("def main():\n    q = input()\n    a = q\n    b = q\n", "utf-8")
+    manifest = tmp_path / "repos.yaml"
+    manifest.write_text(
+        "threshold: 0.90\nrepos:\n  - name: fake\n"
+        "    url: https://example.invalid/fake\n    ref: deadbeef\n"
+        "    kind: audited\n    split: held-out\n    expect:\n"
+        "      - {file: app.py, line: 3, capability: exec, verdict: flag,\n"
+        "         group: a, mitigation: 'none', code: 'a = q'}\n"
+        "      - {file: app.py, line: 4, capability: http, verdict: flag,\n"
+        "         group: a, mitigation: 'none', code: 'b = q'}\n",
+        encoding="utf-8",
+    )
+    m, _ = mod.score_repos(manifest, False)
+    _, _, total = m.group_recall_for("held-out")
+    assert total == 2, f"one group tag spanning two capabilities must split, got {total}"
+
+
+def test_the_capability_aggregation_is_the_pessimistic_bound(Metrics) -> None:
+    """Three groups in one repo under one capability collapse to one
+    observation. Reported alongside the labeller's grouping so the headline
+    never rests on a judgement call about how correlated two paths really are -
+    when the two disagree, the smaller number is the honest one."""
+    m = Metrics()
+    m.groups_by_split = {
+        "held-out": {
+            ("r", "exec", "a"): False,
+            ("r", "exec", "b"): False,
+            ("r", "exec", "c"): True,
+            ("r", "sql", "d"): False,
+        }
+    }
+    as_labelled = m.group_recall_for("held-out")
+    per_capability = m.capability_recall_for("held-out")
+    assert as_labelled[1:] == (1, 4)
+    assert per_capability[1:] == (1, 2), "exec paths must collapse to one observation"
+    assert per_capability[0] > as_labelled[0], (
+        "collapsing a denominator raises the rate - which is exactly why both "
+        "are printed and the smaller n is the one quoted"
+    )
+
+
+def test_capability_aggregation_is_empty_for_an_empty_split(Metrics) -> None:
+    m = Metrics()
+    assert m.capability_recall_for("held-out") is None
+
+
+def test_the_leak_tripwire_still_fires_on_a_real_mention() -> None:
+    """Vacuity guard for the boundary fix above.
+
+    Two false alarms were tightened away in a row; a third tightening could
+    silently disarm the check entirely. `vanna` is genuinely diagnosed in
+    proof-scans.md, so the matcher must still see it.
+    """
+    diagnosed = PROOF.read_text(encoding="utf-8")
+    assert re.search(r"(?<![A-Za-z0-9])vanna(?![A-Za-z0-9])", diagnosed), (
+        "the tripwire no longer matches a repo that IS diagnosed - it has been "
+        "tightened into uselessness"
+    )
+    assert not re.search(r"(?<![A-Za-z0-9])agno(?![A-Za-z0-9])", diagnosed), (
+        "the boundary fix did not take: `agno` still matches inside `diagnosed`"
+    )
