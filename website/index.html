@@ -70,8 +70,31 @@
   .btn-ghost:hover{background:var(--panel)}
   .cmd{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--border);
     background:var(--panel);border-radius:var(--pill);padding:10px 18px;
-    font-family:var(--mono);font-size:13px}
+    font-family:var(--mono);font-size:13px;color:var(--ink);margin:0;
+    -webkit-appearance:none;appearance:none;cursor:pointer;position:relative}
+  .cmd:hover{border-color:var(--accent)}
+  .cmd:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .cmd .p{color:var(--accent);font-weight:500}
+  /* Fixed-size icon slot: the glyph swaps on copy, so the button never reflows
+     and the buttons beside it never shift under the cursor. */
+  .cmd .ico{display:inline-flex;flex:none;width:14px;height:14px;color:var(--faint)}
+  .cmd:hover .ico{color:var(--muted)}
+  .cmd .ico svg{display:block;width:14px;height:14px}
+  .cmd .ico .check{display:none}
+  .cmd.is-copied .ico{color:var(--accent)}
+  .cmd.is-copied .ico .clip{display:none}
+  .cmd.is-copied .ico .check{display:block}
+  /* Confirmation floats above the chip rather than sitting inside it, for the
+     same reason: no width change, no layout shift. */
+  .cmd .toast{position:absolute;left:50%;bottom:calc(100% + 8px);
+    transform:translateX(-50%) translateY(-4px);background:var(--ink);color:var(--bg);
+    font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;
+    border-radius:var(--pill);white-space:nowrap;opacity:0;pointer-events:none;
+    transition:opacity .14s ease,transform .14s ease}
+  .cmd.is-copied .toast,.cmd.is-failed .toast{opacity:1;transform:translateX(-50%) translateY(0)}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  @media (prefers-reduced-motion: reduce){.cmd .toast{transition:none}}
 
   .numbers{margin:28px auto 0;max-width:64ch;font-family:var(--mono);font-size:10.5px;
     line-height:1.9;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
@@ -135,7 +158,23 @@
     <h1>We're building the <em>AI safety engineer</em> for your codebase.</h1>
     <p class="sub"><b>v1 ships today</b>: it finds the path from untrusted text, through your model, into <code>exec</code>, a shell, or your database. The rest of the job is on the <a href="./roadmap.html" style="border-bottom:1px solid var(--border)">roadmap</a>.</p>
     <div class="cta">
-      <span class="cmd"><span class="p">$</span>uvx palisade-sec scan .</span>
+      <button class="cmd" type="button" id="copy-cmd" data-cmd="uvx palisade-sec scan ."
+              aria-label="Copy install command: uvx palisade-sec scan .">
+        <span class="p" aria-hidden="true">$</span>uvx palisade-sec scan .
+        <span class="ico" aria-hidden="true">
+          <svg class="clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="12" height="12" rx="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+        </span>
+        <span class="toast" aria-hidden="true">Copied</span>
+      </button>
+      <span class="sr-only" role="status" aria-live="polite" id="copy-status"></span>
       <a class="btn btn-primary" href="https://github.com/arpankernel/palisade">GitHub</a>
       <a class="btn btn-ghost" href="./roadmap.html">Shipped &amp; next</a>
     </div>
@@ -153,6 +192,58 @@
     <span><a href="./roadmap.html">Roadmap</a> &middot; <a href="./docs/">Docs</a> &middot; <a href="https://github.com/arpankernel/palisade">GitHub</a> &middot; <a href="https://pypi.org/project/palisade-sec/">PyPI</a></span>
   </div>
 </footer>
+
+<script>
+(function () {
+  var btn = document.getElementById('copy-cmd');
+  if (!btn) return;
+  var toast = btn.querySelector('.toast');
+  var status = document.getElementById('copy-status');
+  var timer;
+
+  // execCommand is deprecated but still the only path that works when the page
+  // is opened over plain http or from a file:// URL, where navigator.clipboard
+  // is undefined. Worth keeping: people do read this page off a local checkout.
+  function legacyCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function settle(ok) {
+    clearTimeout(timer);
+    btn.classList.remove('is-copied', 'is-failed');
+    btn.classList.add(ok ? 'is-copied' : 'is-failed');
+    toast.textContent = ok ? 'Copied' : 'Press ⌘C';
+    status.textContent = ok ? 'Command copied to clipboard' : 'Copy failed, select and copy manually';
+    timer = setTimeout(function () {
+      btn.classList.remove('is-copied', 'is-failed');
+      toast.textContent = 'Copied';
+      status.textContent = '';
+    }, 1800);
+  }
+
+  btn.addEventListener('click', function () {
+    var text = btn.dataset.cmd;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () {
+        settle(true);
+      }, function () {
+        settle(legacyCopy(text));
+      });
+    } else {
+      settle(legacyCopy(text));
+    }
+  });
+})();
+</script>
 
 </body>
 </html>
