@@ -258,6 +258,55 @@ after reading the family by hand, one of which the engine finds and one of which
 it does not, so the correction cost a miss as well as gaining a hit. Precision
 is back to 1.000 over 40,466 files.
 
+### Measured 2026-09-30: the rule family moved nothing
+
+One run, as pre-committed. No re-run.
+
+| | before | after |
+|---|---|---|
+| precision | 1.000 | **1.000** (tp=4 fp=0, 40,466 files) |
+| train recall | 0.235 | **0.235** |
+| held-out recall | 0/45 | **0/45** |
+
+The capability is real - nine tests, and reduced versions of every train shape
+resolve, including two object boundaries through a base-class template method.
+It changed **zero outcomes** across 50 real repositories. That is a result, and
+a more useful one than a small move would have been: object-boundary resolution
+is necessary and **is not the binding constraint**.
+
+**What the constraint actually is.** Every real instance terminates in something
+local resolution cannot reach:
+
+1. **Dependency-injected abstractions.** griptape's `SqlLoader.sql_driver` is
+   declared `BaseSqlDriver` - abstract, many implementations, concrete driver
+   chosen at a wiring site in another file. The engine refuses to guess among
+   many providers, and that refusal *is* the precision guarantee. Resolving it
+   needs the value, not the type.
+2. **Value flow through constructed containers.** dspy builds `input_kwargs` in
+   a loop and calls `self.code_generate(**input_kwargs)`; taint through dict
+   construction and `**` expansion is a separate mechanism from typing.
+
+Both are whole-program problems. Neither is a rule, a signature, or a marker.
+
+### The fork this creates, and the discipline for taking it
+
+| option | what it costs | what it risks |
+|---|---|---|
+| **A. Whole-program object tracking** (points-to from wiring sites) | a large build, on the order of the existing engine | precision, and a long time before any measurement |
+| **B. Follow abstract dispatch when the base is abstract** | small, bounded, specifiable from train | precision - which is now *measurable* rather than assumed |
+| **C. Narrow the product claim** to the shape it does catch | nothing to build | the "AI safety engineer" framing, which the numbers already contradict |
+
+**B is the highest-information next step**, because the corpus can now price it:
+20 held-out repos and 45 observations exist to measure what relaxing the
+many-provider refusal costs in false positives. That is the question the
+precision half of this corpus was built to answer.
+
+With the same discipline, which matters more here than it did for the gaps:
+specify the relaxation from a train miss, implement it, measure **once**. A
+search over relaxations - try one, check held-out, try another - is fitting to
+the test set with a longer feedback loop, and it would be undetectable in the
+final number. One relaxation, one measurement.
+
 ### The gaps, each specified from a train miss
 
 Written before the code, by coordinate and verbatim sink, so the derivation is
