@@ -6,11 +6,27 @@ clean one - and it has held at **1.000**. Recall had no equivalent discipline.
 It was **0.200** over **10 hand-verified paths in 8 repos**, all of them train,
 and the next engine work is aimed squarely at the 8 it misses.
 
-**Measured under this protocol on 2026-09-30: held-out recall 0.000 (0 of 6,
-across 4 repos).** The first honest read of the engine's generalization, and it
-found nothing it had not been built for. At n=6 that is a weak estimate, not a
-demonstration that recall is zero - 0 hits out of 6 is consistent with a true
-rate near 0.4 - but it is the number, and it is the one to publish.
+**Measured under this protocol on 2026-09-30, after the corpus grew to 50
+repos: held-out recall 0.000.**
+
+| denominator | result |
+|---|---|
+| paths | 0 / 98 |
+| groups as labelled (by blind labellers) | 0 / 74 |
+| groups per capability (pessimistic bound) | **0 / 45** |
+| repos carrying held-out labels | 20 |
+
+The first measurement, at n=6, was too small to distinguish a poor engine from
+an unlucky draw. This one is not. Zero hits out of 45 independent observations
+puts the 95% upper bound near **0.07**: the engine finds essentially none of the
+real injection-to-capability paths in modern agent frameworks, and that is now a
+finding rather than a weak estimate.
+
+Precision over the same run is **1.000 with zero false positives across 40,466
+files**. Those two numbers have to be quoted together, always. A detector that
+reports nothing has perfect precision trivially, and this harness exists to
+refuse exactly that kind of vacuity - it has to refuse it for the product too,
+not only for the corpus.
 
 That is the problem this document exists to prevent. Fixing the eight misses
 you can read in a table and then publishing the resulting recall is fitting to

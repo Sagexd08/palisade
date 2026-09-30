@@ -165,11 +165,11 @@ scored by `scripts/precision.py`.
 
 | Metric | Value |
 |--------|-------|
-| Repos | 26 |
-| Files scanned | 17,352 (re-measured on 0.5.1; 0.4.0 scanned 17,343) |
+| Repos | 50 |
+| Files scanned | 40,466 (50 repos; 40,382 in 47 challenged targets) |
 | Precision | **1.000** (tp=2, fp=0) |
-| Recall (train) | **0.200** (tp=2, fn=8; 10 paths whose misses are documented below) |
-| Recall (held-out) | **0.000** (tp=0, fn=6; 6 paths in 4 repos, labelled 2026-09-30, never diagnosed before measurement) |
+| Recall (train) | **0.133** (tp=2, fn=13; 15 documented paths, 10 per capability) |
+| Recall (held-out) | **0.000** (tp=0, fn=98; 45 independent observations in 20 repos) |
 | F1 | **0.333** |
 
 | Repo | Expected | Result |
@@ -184,19 +184,32 @@ scored by `scripts/precision.py`.
 **The held-out number is the honest one, and it is 0.000.** The table above and
 everything below it covers **train** paths only: their misses are explained in
 this file, so the engine is built against that text and recall over them is fit
-by construction. On 2026-09-30 a second set was labelled under
-`corpus/RECALL-PROTOCOL.md` - 6 paths in 4 repos, assigned to the held-out half
-by a seeded shuffle committed before anyone read the repos, and labelled with
-location and verbatim sink text only. Palisade found **0 of 6**.
+by construction. A held-out half was labelled on 2026-09-30 under
+`corpus/RECALL-PROTOCOL.md` - repos assigned by a seeded shuffle committed before
+anyone read them, labelled by agents with no knowledge of this engine, recording
+location and verbatim sink text only.
 
-Two things that number does and does not mean. It does mean there is no
-evidence yet that the engine generalizes beyond the shapes it was built
-against. It does not mean recall is zero: at n=6, 0 hits is consistent with a
-true rate up to roughly 0.4, so this is a weak estimate and any report of it
-has to say so. Per the protocol, held-out misses are reported as a count with
-no repo names and no reasons - writing down the reason is what converts a
-held-out path into a training example, and `scripts/precision.py` suppresses
-their coordinates unless `--held-out-detail` is passed.
+| denominator | result |
+|---|---|
+| paths | 0 / 98 |
+| groups as labelled | 0 / 74 |
+| groups per capability (the number to quote) | **0 / 45** |
+| repos | 20 |
+
+Zero of 45 independent observations puts the 95% upper bound near 0.07. The
+first pass measured 0 of 6, which was too small to separate a poor engine from
+an unlucky draw; this is not. The engine finds essentially none of the real
+injection-to-capability paths in modern agent frameworks.
+
+Precision on the same run is 1.000 with zero false positives across 40,466
+files. **Neither number may be published without the other.** A scanner that
+reports nothing has perfect precision for free, and the discipline this harness
+applies to the corpus has to apply to the product.
+
+Per the protocol, held-out misses are reported as a count with no repo names and
+no reasons - writing the reason is what converts a held-out path into a training
+example - and `scripts/precision.py` suppresses their coordinates unless
+`--held-out-detail` is passed.
 
 **Misses are recorded, not hidden.** PandasAI's exec sits behind pipeline step
 objects dispatched dynamically at runtime, which bounded static taint cannot

@@ -88,19 +88,21 @@ tractable end of reducing catastrophic risk from autonomous AI.
 | `PI-HTTP` | input → LLM → model-chosen URL fetched (SSRF/exfil; advisory, never gates CI) | OWASP LLM Top-10 |
 | `PI-AGENT-HANDOFF` | input → agent → handoff (≥1 hop) → agent holding a dangerous-capability tool (OpenAI Agents SDK, LangGraph, CrewAI; gates `scan --ci`) | agentic prompt-injection class |
 
-**Measured, not asserted.** Against a pinned benchmark corpus of 26
-third-party repos (17,352 files): **precision 1.000** - zero false positives.
-Recall is reported in two halves, because only one of them is evidence.
-**Recall 0.200 (train)**: of 10 real prompt-injection paths hand-verified in
-that corpus, Palisade finds 2 (the Vanna CVE, in two releases) - but each of
-those misses is explained in `docs/proof-scans.md`, so the engine is built
-against that text and the number is fit by construction.
-**Recall 0.000 (held-out)**: of 6 further paths labelled under
-`corpus/RECALL-PROTOCOL.md` - assigned to the held-out half by a seeded
-shuffle committed before anyone read the repos, and recorded with location and
-verbatim sink text only - Palisade finds **none**. At n=6 that is a weak
-estimate rather than proof recall is zero, and it is the number to judge the
-engine on. The 8 train misses stay labelled rather than deleted. Four run in a sandbox by default; three reach
+**Measured, not asserted - including where it is bad.** Against a pinned
+benchmark corpus of 50 third-party repos (40,466 files): **precision 1.000**,
+zero false positives. And **held-out recall 0.000**: of 98 real
+prompt-injection-to-capability paths labelled blind in 20 of those repos -
+45 of them independent once correlated paths are collapsed - Palisade finds
+**none**.
+
+Those two numbers belong together and this project will not print one without
+the other. A scanner that reports nothing has perfect precision for free; zero
+of 45 independent observations puts the 95% upper bound on recall near 0.07.
+What Palisade reliably catches today is the narrow Vanna/PandasAI shape it was
+built against - 2 of 15 documented train paths - not the tool-calling agent
+frameworks most teams actually ship. `corpus/RECALL-PROTOCOL.md` explains how
+the held-out half is kept honest, and `docs/proof-scans.md` records every train
+miss rather than deleting it. Four run in a sandbox by default; three reach
 raw SQL or a shell directly. They come down to three engine gaps on the
 roadmap: tool-call arguments as model output, more LLM call shapes (dspy
 modules, `model_client.create`), and method calls on objects the engine

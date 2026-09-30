@@ -32,9 +32,10 @@ Each JSON finding carries `cwe` (e.g. CWE-94, CWE-1426, CWE-1427) and
 GitHub CWE tags and `security-severity`. Set-up commands (network, explicit): `connect github|slack|llm`, `connections`, `disconnect`; `pr` opens a draft PR with the fix plan (branch derived from the findings, so re-runs update it); `notify --slack` posts a summary. Credentials live in the OS keychain or a 0600 file, never in the repo; the environment always wins. Integrations: the GitHub Action
 `uses: arpankernel/palisade@v0.5.2` (SARIF upload + gate) and the pre-commit
 hook `id: palisade-sec`. Measured on a pinned 26-repo corpus: precision 1.000
-(0 false positives); recall 0.200 on the 10 train paths whose misses are
-documented, and 0.000 on 6 held-out paths never diagnosed before measurement
-(n=6 - weak, and the only publishable half).
+(0 false positives across 40,466 files); recall 0.133 on the 15 documented
+train paths, and 0.000 on the held-out half - 0 of 98 paths, 0 of 45
+independent observations in 20 repos. Never quote the precision without the
+recall: a scanner that reports nothing has perfect precision for free.
 
 ## Docs
 

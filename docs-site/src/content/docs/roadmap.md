@@ -94,16 +94,16 @@ template-based `fix` are shipped and pinned by the test suite. 0.5.0, with the
 judgment tier (`audit`, `review`, `redteam --execute`), is on PyPI; 0.5.1 is
 the next release. Quality is now measured rather than
 asserted, against a pinned benchmark corpus of 26 third-party repos
-(17,352 files Palisade actually scans, 0.5.1):
+(40,466 files Palisade actually scans, 50 repos):
 
 | Metric | Value |
 |---|---|
 | Precision | **1.000** (tp=2, fp=0) |
-| Recall (train) | **0.200** (tp=2, fn=8; 10 documented paths) |
-| Recall (held-out) | **0.000** (tp=0, fn=6; the publishable number, n=6) |
+| Recall (train) | **0.133** (tp=2, fn=13; 15 documented paths) |
+| Recall (held-out) | **0.000** (tp=0, fn=98; 0 of 45 independent observations) |
 | F1 | **0.333** |
 
-Zero false positives across 17,352 files of real third-party code. Two small
+Zero false positives across 40,466 files of real third-party code. Three
 repos (84 files) contain no untrusted input for taint to start from; they are
 reported but excluded from the precision claim.
 

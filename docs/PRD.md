@@ -293,9 +293,12 @@ Remaining open:
   `path_map`. The gate/FP hardening PRs turned out to be already shipped in
   0.5.1 and are closed.
 - **Recall is the honest gap, not breadth.** Precision is 1.000 with zero false
-  positives; recall is 0.200 on the 10 documented train paths (2 of 10) and
-  0.000 on the 6 held-out paths labelled 2026-09-30 (n=6, the publishable
-  half - see corpus/RECALL-PROTOCOL.md).
+  positives across 40,466 files; recall is 0.133 on the 15 documented train
+  paths and **0.000 on the held-out half** - 0 of 98 paths, 0 of 45 independent
+  observations across 20 repos (see corpus/RECALL-PROTOCOL.md). The two numbers
+  are published together always: perfect precision is free for a scanner that
+  reports nothing, and on today's evidence Palisade finds essentially none of
+  the real paths in tool-calling agent frameworks.
   The three named engine gaps in `roadmap.md`, plus the agent-graph entry-point
   gap found in triage, outrank new check types.
 
