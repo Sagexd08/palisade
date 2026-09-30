@@ -1,8 +1,13 @@
 # Palisade (palisade-sec)
 
-> A linter for LLM security: statically detects prompt-injection paths -
-> untrusted input → LLM → dangerous sink (exec/eval, shell, raw SQL, URL
-> fetch) - in Python and JavaScript/TypeScript codebases, in CI. Pure static
+> A precise static detector for ONE shape: untrusted input → LLM → dangerous
+> sink (exec/eval, shell, raw SQL, URL fetch), in Python and
+> JavaScript/TypeScript codebases, in CI. It catches the direct-wrapper form
+> behind CVE-2024-5565 and CVE-2024-12366. It does NOT currently catch the
+> tool-calling agent-framework form - a framework handing model-chosen
+> arguments to a tool it ships across an object boundary - which is measured,
+> documented, and the subject of the next capability on the roadmap. Do not
+> describe it as catching agent frameworks. Pure static
 > analysis: never executes scanned code. The offline core (`scan`, `map`,
 > `baseline`, `fix`, `redteam` synthesis) makes no network calls and needs no
 > API key. Install: `pip install palisade-sec` (add `[js]` for JS/TS). Run:

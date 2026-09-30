@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Palisade - your AI's safety engineer</title>
-<meta name="description" content="Palisade is the safety engineer for your AI. It finds where your app can be tricked into leaking data, running commands, or hitting your database, tests those weaknesses, and blocks them before you ship. Open source, MIT, runs locally. Precision 1.000, zero false positives across 40,466 files of real code - published alongside a held-out recall of 0.000.">
-<meta property="og:title" content="Palisade - your AI's safety engineer">
+<title>Palisade - a precise scanner for prompt-injection paths</title>
+<meta name="description" content="Palisade is a precise static detector for one dangerous shape: untrusted input reaching a model whose output reaches exec, a shell, or your database - the shape behind the Vanna and PandasAI CVEs. Open source, MIT, runs locally, no API key. Precision 1.000 with zero false positives across 40,466 files, published alongside a held-out recall of 0.000 on the agent-framework shape it does not yet catch.">
+<meta property="og:title" content="Palisade - a precise scanner for prompt-injection paths">
 <meta property="og:description" content="AI can be tricked with a crafted message into leaking data, running commands, or hitting your database. Palisade finds it, tests it, and gates it in CI - before you ship. Open source, MIT, the scanner runs locally with no API key.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='6' height='22' fill='%232A1512'/%3E%3Crect x='13' y='2' width='6' height='26' fill='%236E1F2A'/%3E%3Crect x='22' y='6' width='6' height='22' fill='%232A1512'/%3E%3C/svg%3E">
@@ -350,8 +350,8 @@
     <div class="dotbg dotgrid" aria-hidden="true"></div>
     <div class="wrap">
       <span class="hero-anim badge"><span class="pulse"></span>Open source · MIT · the scanner runs locally, no API key</span>
-      <h1 class="hero-anim">Meet Palisade. <span class="accent">Your AI's safety engineer.</span></h1>
-      <p class="hero-anim sub">AI can be tricked into leaking data, running commands, or hitting your database. Palisade is the engineer that finds those weaknesses, tests them, and blocks them before you ship - one command, right in your pipeline.</p>
+      <h1 class="hero-anim">Palisade finds one bug class. <span class="accent">And publishes what it misses.</span></h1>
+      <p class="hero-anim sub">When untrusted text reaches your model and the model's output reaches <code>exec</code>, a shell, or your database, that is the shape behind the Vanna and PandasAI CVEs. Palisade finds it statically, in CI, with <b>zero false positives across 40,466 files of real code</b> - and publishes a <b>held-out recall of 0.000</b> on the agent-framework shape it does not catch yet. Both numbers, every time.</p>
       <div class="hero-anim flow">a crafted message <span class="arrow">──▶</span> <b>your AI</b> <span class="arrow">──▶</span> <b>a dangerous action</b> <span class="dim">(no guardrail)</span> <span class="x">⇒ caught</span></div>
       <div class="hero-anim cta-row" id="get-started">
         <button class="install" data-copy="uvx palisade-sec scan ." type="button" aria-label="Copy install command">
@@ -361,7 +361,7 @@
         <a class="btn btn-secondary" href="https://github.com/arpankernel/palisade">Star on GitHub ↗</a>
       </div>
       <div class="hero-anim meta-note">JavaScript / TypeScript? add the extra: <code>uvx --from "palisade-sec[js]" palisade-sec scan .</code></div>
-      <div class="hero-anim meta-note">precision 1.000 · 0 false positives across 40,466 files · held-out recall 0.000 · both numbers published</div>
+      <div class="hero-anim meta-note">precision 1.000 · 0 false positives across 40,466 files · held-out recall 0.000 (0 of 45) · we publish both, and the miss list</div>
 
       <!-- TERMINAL -->
       <div class="terminal-frame reveal">
@@ -566,7 +566,7 @@
         </div>
         <div class="receipt-notes">
           <div class="row"><span class="rl">HIT</span><h4>The exact CVE line, nothing else</h4><p>Builtin rules land on <code style="font-family:var(--mono);font-size:11px">base.py:1998</code> - the <code style="font-family:var(--mono);font-size:11px">exec</code> sink behind CVE-2024-5565 - from an <code style="font-family:var(--mono);font-size:11px">input(...)</code> source, no library mode needed, and call out the cosmetic sanitizer the CVE went straight through. <code style="font-family:var(--mono);font-size:11px">--assume-params-untrusted</code> adds the public <code style="font-family:var(--mono);font-size:11px">ask()</code> parameter as a source and reports the same single finding.</p></div>
-          <div class="row"><span class="rl">HELD</span><h4>Zero false positives at scale</h4><p>A pinned corpus of 50 third-party repos, 40,466 files, scored weekly and on demand: precision 1.000: not one wrong flag. Recall comes in two halves, and the honest one reads 0.000. We labelled 98 real injection-to-capability paths blind across 20 of those repos — 45 once correlated paths are collapsed — and the engine finds none of them. It finds 2 of the 15 paths we had written up, which are the ones it was built against. We publish the precision and the recall together, because a scanner that reports nothing has perfect precision for free. Every miss stays labelled rather than deleted.</p></div>
+          <div class="row"><span class="rl">HELD</span><h4>Zero false positives at scale</h4><p>A pinned corpus of 50 third-party repos, 40,466 files, scored weekly and on demand: precision 1.000, not one wrong flag. And held-out recall 0.000. We labelled 98 real injection-to-capability paths blind across 20 of those repos — 45 once correlated paths are collapsed — and the engine finds none of them. It finds 4 of the 17 paths we had written up, which are the ones it was built against. We publish both numbers together, because a scanner that reports nothing has perfect precision for free. We also publish the direction of the error: our ground truth is known-incomplete — an audit of ours missed two real paths that the engine later found — so the denominators are smaller than the truth and the recall figure is, if anything, generous. Every miss is listed by file and line in the proof-scan report. Three attempts to close the agent-framework gap each moved held-out recall by zero, which is how we know the next capability is whole-program object tracking rather than another rule.</p></div>
           <div class="row"><span class="rl">HONEST</span><h4>Misses are documented, not hidden</h4><p>PandasAI's dynamic pipeline dispatch beats bounded static taint. We say so, and it defines the roadmap. <a href="./docs/proof-scans/">Read the full proof-scan report →</a></p></div>
         </div>
       </div>
@@ -623,7 +623,7 @@
     <div class="wrap">
       <span class="kicker">The whole job</span>
       <h2>One engineer. The whole safety job.</h2>
-      <p class="section-sub">Finding the risk is where Palisade starts. A real safety engineer also stress-tests the system, argues it is safe with evidence, gates the risk in your pipeline, and keeps a human in charge as AI writes more of the code. Palisade is growing into all of it - one honest tool across every facet of AI safety engineering. Each piece is marked for what it does today versus what is still being built.</p>
+      <p class="section-sub">What ships today is the detector: one bug class, found precisely, with the misses published. The rest of a safety engineer's job - stress-testing the system, arguing residual risk with evidence, gating it in your pipeline - is the direction of travel, and it is marked as future work with no dates. Nothing below is claimed as working because it is on this list; each piece says what it does today.</p>
       <div class="rules reveal stagger">
 
         <div class="rule-card">
@@ -670,7 +670,7 @@
           <span class="sev high">SHIPPED</span><div class="rid">06 · MEASURED GROUND TRUTH</div>
           <h3>Why the ambition stays honest</h3>
           <p>Every judgment is anchored to a deterministic finding the engine can prove. The floor under the whole roadmap is a real, measured detector.</p>
-          <div class="sinks">today · LLM-aware taint core<br>today · precision 1.000 across 40,466 files<br>today · zero false positives</div>
+          <div class="sinks">today · LLM-aware taint core<br>today · precision 1.000 across 40,466 files<br>today · held-out recall 0.000, published<br>next · whole-program object tracking</div>
           <div class="cve">honest - judged-layer calibration is preliminary: measured on a 10-case seed corpus (n=4 to 6 per signal), not a benchmark result; the judged layer stays advisory. The core's precision stands alone</div>
         </div>
 
@@ -688,7 +688,7 @@
       <div class="faq reveal">
         <div class="faq-item">
           <button class="faq-q" type="button">Is this real AI safety, or just a linter?<span class="ic">+</span></button>
-          <div class="faq-a"><div><p>A linter is the foundation, and that is deliberate: every safety claim is anchored to a deterministic finding Palisade can prove. On that ground truth it does more of an AI safety engineer's job - mapping the action surface, red-teaming it, arguing residual risk, and gating AI-assisted changes. It works the applied, verifiable end of the problem: safety for agentic systems at the deployment layer. It is not frontier alignment research, and it does not claim to be.</p></div></div>
+          <div class="faq-a"><div><p>Today it is a linter, and a narrow one: it finds untrusted input reaching a model whose output reaches a dangerous capability, precisely, with the misses published. The wider safety-engineer work - mapping the action surface, red-teaming it, arguing residual risk, gating AI-assisted changes - exists in the tool but is not what the numbers above are about, and the roadmap marks it as future work. It is not frontier alignment research and does not claim to be.</p></div></div>
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">Which parts are shipped, and is the judgment layer calibrated?<span class="ic">+</span></button>
@@ -728,7 +728,7 @@
   <div class="dg" aria-hidden="true"></div>
   <div class="wrap">
     <span class="kicker" style="color:var(--cream-bright)">Free forever · MIT</span>
-    <h2>Put a safety engineer<br>on your AI.</h2>
+    <h2>Find the shape<br>that keeps shipping.</h2>
     <p>One command, 30 seconds - no key, no signup, no code leaving your machine. Find where your AI could be turned against you, before it ships.</p>
     <button class="install" data-copy="uvx palisade-sec scan ." type="button" aria-label="Copy install command">
       <span class="prompt">$</span> uvx palisade-sec scan .

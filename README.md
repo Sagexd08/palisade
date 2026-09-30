@@ -2,28 +2,36 @@
 
 > **Website:** https://arpankernel.github.io/palisade/ · **Docs:** https://arpankernel.github.io/palisade/docs/
 
-**Applied agentic-safety infrastructure.** Palisade instruments the boundary
-where AI systems take real-world actions - detecting, evaluating, and gating
-the untrusted-input → model → dangerous-capability paths that are the near-term,
-tractable shape of loss-of-control risk. It runs on Python and
-JavaScript/TypeScript codebases, in CI, before they ship.
+**A precise static detector for one dangerous shape, and an honest account of
+what it misses.** Palisade finds the path where untrusted input reaches a model
+whose output then reaches a dangerous capability - the shape behind
+CVE-2024-5565 (Vanna), CVE-2024-12366 (PandasAI) and the text-to-SQL and
+code-interpreter class generally. Python and JavaScript/TypeScript, in CI, no
+API key, no signup, no network calls.
 
 ```
 untrusted input  →  LLM  →  exec / shell / raw SQL   (no sanitizer)   ⇒  finding
 ```
 
-The offline static core detects these paths with no API key, no signup, and no
-network calls - measured precision 1.000 on a pinned benchmark corpus. An opt-in
-layer (`audit`, `review`) adds grounded exploitability judgment and a safety-case
-posture over an endpoint you configure. Everything is MIT and free to run.
+**Measured both ways, which is the point.** On a pinned corpus of 50
+third-party repositories and 40,466 files:
 
-This is the applied arm of a long-horizon program to reduce catastrophic risk
-from autonomous AI: the failure it hardens today - untrusted input driving a
-model into a high-impact action with no oversight - is the same shape that
-scales as agents gain capability and autonomy. Palisade works the tractable,
-verifiable end of that problem: agentic safety, evals, safety cases, oversight,
-and governance at the application layer. It is engineering infrastructure, not
-frontier alignment research.
+| | |
+|---|---|
+| **precision 1.000** | zero false positives, every finding a real path |
+| **held-out recall 0.000** | 0 of 45 independent paths labelled blind in 20 repos |
+
+Read them together, always. Palisade catches the direct-wrapper shape above and
+**does not currently catch the tool-calling agent-framework shape** - a
+framework's own code handing model-chosen arguments to a tool it ships, across
+an object boundary. We measured that, wrote down why, and named the capability
+it needs (see the roadmap). If you scan an agent framework today and Palisade
+is quiet, that is the documented limit, not a surprise.
+
+As far as we know this is the only tool in its category that publishes a
+held-out recall number at all. `docs/proof-scans.md` lists every path it misses,
+by file and line, and `corpus/RECALL-PROTOCOL.md` is the protocol that keeps
+the number falsifiable - including the ways it could still be flattering us.
 
 ```bash
 uvx palisade-sec scan .
@@ -98,11 +106,22 @@ prompt-injection-to-capability paths labelled blind in 20 of those repos -
 Those two numbers belong together and this project will not print one without
 the other. A scanner that reports nothing has perfect precision for free; zero
 of 45 independent observations puts the 95% upper bound on recall near 0.07.
-What Palisade reliably catches today is the narrow Vanna/PandasAI shape it was
-built against - 4 of 17 documented train paths - not the tool-calling agent
-frameworks most teams actually ship. `corpus/RECALL-PROTOCOL.md` explains how
-the held-out half is kept honest, and `docs/proof-scans.md` records every train
-miss rather than deleting it. Four run in a sandbox by default; three reach
+
+**The direction of error is also published.** Ground truth here is
+known-incomplete: an audit labelled one `crewai` tool and missed two real
+siblings in the same directory, which the engine later found. So the
+denominators are smaller than the truth and every recall figure is, if
+anything, an overestimate. That cannot be corrected for the held-out half
+without relabelling after measurement, so it is declared instead.
+
+What Palisade reliably catches is the Vanna/PandasAI shape it was built
+against - 4 of 17 documented train paths. What it does not catch is the
+tool-calling agent-framework shape, and three measured attempts to close that
+gap moved held-out recall by zero paths each time. The constraint was traced,
+not guessed: those paths end in dependency-injected abstractions and in value
+flow through constructed containers, which need whole-program object tracking
+rather than another rule. That is the named next capability, not a claim about
+today. Four run in a sandbox by default; three reach
 raw SQL or a shell directly. They come down to three engine gaps on the
 roadmap: tool-call arguments as model output, more LLM call shapes (dspy
 modules, `model_client.create`), and method calls on objects the engine

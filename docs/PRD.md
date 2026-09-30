@@ -1,8 +1,17 @@
 # Palisade — Product Requirements Document
 
-> **One line:** Palisade is the **AI Safety Engineer you hire** — a pluggable agent
-> that continuously finds, tests, and helps fix the ways your AI systems can be
-> made to misbehave, and turns safety from a review step into infrastructure.
+> **One line:** Palisade is a **precise static detector for one dangerous shape**
+> — untrusted input reaching a model whose output reaches a dangerous capability
+> — shipped with a published held-out recall, including the shape it does not
+> catch. The safety-engineer role is the direction of travel, not the claim.
+
+> **Positioning discipline, added 2026-09-30 after the third measurement:** the
+> launch claim is the narrow one, because it is the one a first scan cannot
+> embarrass. Three engine passes each moved held-out recall by zero paths, so
+> "finds the ways your AI can be made to misbehave" is not a statement this
+> product can support, and shipping it would mean a user discovering the limit
+> instead of reading it. Every surface states precision and held-out recall
+> together, with the denominator and the direction of error.
 
 - **Status:** v0.6.1 shipped, live on PyPI as `palisade-sec`. The offline static
   core, the judgment layer (`audit`/`review` + posture), red-team synthesis and

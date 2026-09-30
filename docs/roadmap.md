@@ -285,24 +285,33 @@ local resolution cannot reach:
 
 Both are whole-program problems. Neither is a rule, a signature, or a marker.
 
-### The fork this creates, and the discipline for taking it
+### The decision taken: ship the narrow tool, make this the roadmap
 
-| option | what it costs | what it risks |
-|---|---|---|
-| **A. Whole-program object tracking** (points-to from wiring sites) | a large build, on the order of the existing engine | precision, and a long time before any measurement |
-| **B. Follow abstract dispatch when the base is abstract** | small, bounded, specifiable from train | precision - which is now *measurable* rather than assumed |
-| **C. Narrow the product claim** to the shape it does catch | nothing to build | the "AI safety engineer" framing, which the numbers already contradict |
+Three passes, three zeros. That is a **scope finding, not an engine to-do**, and
+it settles the launch rather than the next sprint.
 
-**B is the highest-information next step**, because the corpus can now price it:
-20 held-out repos and 45 observations exist to measure what relaxing the
-many-provider refusal costs in false positives. That is the question the
-precision half of this corpus was built to answer.
+**The engine is not touched before launch.** Precision 1.000 is the entire trust
+claim of what ships, and the abstract-dispatch shortcut buys recall on a shape we
+have now measured we do not catch by spending exactly that. An experimental path
+whose precision is load-bearing for a live product is not an experiment.
 
-With the same discipline, which matters more here than it did for the gaps:
-specify the relaxation from a train miss, implement it, measure **once**. A
-search over relaxations - try one, check held-out, try another - is fitting to
-the test set with a longer feedback loop, and it would be undetectable in the
-final number. One relaxation, one measurement.
+**The next capability, named honestly: whole-program object tracking.** Not the
+shortcut. The traced constraints are dependency-injected abstractions (the
+declared type is abstract, the concrete object is chosen at a wiring site in
+another file) and value flow through constructed containers (`**kwargs` built in
+a loop). Both need to follow *values*, not types. Specified from the four train
+misses already written down above, no dates.
+
+When it runs, it runs as post-launch research: an experimental branch, measured
+against the held-out half **with precision as a gate**, never as a live-product
+guarantee. And under the same discipline as every pass so far - one
+specification from train misses, one implementation, one measurement. A search
+over relaxations, checking held-out between each, is fitting to the test set on
+a longer feedback loop, and it would be invisible in the final number.
+
+The abstract-dispatch relaxation is recorded as rejected-for-now rather than
+deleted: it is cheap and it would raise recall, and the reason not to do it is
+that it trades the one property the shipped product rests on.
 
 ### The gaps, each specified from a train miss
 
