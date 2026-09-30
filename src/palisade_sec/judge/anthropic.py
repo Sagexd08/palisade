@@ -47,11 +47,26 @@ class AnthropicBackend:
         endpoint: str = DEFAULT_ENDPOINT,
         model: str = DEFAULT_MODEL,
         client: httpx.Client | None = None,
+        workspace_id: str = "",
     ) -> None:
         self._api_key = api_key
         self.endpoint = endpoint.rstrip("/")
         self.model = model
+        # Organization keys are not scoped to a workspace and are rejected
+        # without this. Sent here as well as on the connect probe, so a key
+        # that verifies is a key that works.
+        self._workspace_id = workspace_id
         self._client = client or httpx.Client()
+
+    def _headers(self) -> dict[str, str]:
+        headers = {
+            "x-api-key": self._api_key,
+            "anthropic-version": API_VERSION,
+            "content-type": "application/json",
+        }
+        if self._workspace_id:
+            headers["anthropic-workspace-id"] = self._workspace_id
+        return headers
 
     def ask(self, state: object, questions: list[Question]) -> JudgeResult:
         user = json.dumps({"state": state, "questions": _questions_spec(questions)})
@@ -88,11 +103,7 @@ class AnthropicBackend:
             resp = self._client.post(
                 url,
                 json=body,
-                headers={
-                    "x-api-key": self._api_key,
-                    "anthropic-version": API_VERSION,
-                    "content-type": "application/json",
-                },
+                headers=self._headers(),
                 timeout=60.0,
             )
         except httpx.HTTPError as exc:

@@ -15,6 +15,9 @@ from palisade_sec.judge.base import JudgeBackend, JudgeError
 BACKEND_ENV = "PALISADE_JUDGE_BACKEND"
 ENDPOINT_ENV = "PALISADE_JUDGE_ENDPOINT"
 MODEL_ENV = "PALISADE_JUDGE_MODEL"
+# Anthropic organization keys need a workspace id; ANTHROPIC_WORKSPACE_ID is
+# the name Anthropic uses, so it is the one honoured first (see store.py).
+WORKSPACE_ENV = "ANTHROPIC_WORKSPACE_ID"
 TYPESAFE_KEY_ENV = "TYPESAFE_API_KEY"
 ANTHROPIC_KEY_ENV = "ANTHROPIC_API_KEY"
 GENERIC_KEY_ENV = "PALISADE_JUDGE_API_KEY"
@@ -58,6 +61,7 @@ def _resolve_env() -> tuple[dict[str, str], set[str]]:
         BACKEND_ENV,
         ENDPOINT_ENV,
         MODEL_ENV,
+        WORKSPACE_ENV,
         TYPESAFE_KEY_ENV,
         ANTHROPIC_KEY_ENV,
         GENERIC_KEY_ENV,
@@ -90,12 +94,15 @@ def _stored_judge_settings() -> dict[str, str]:
     key = store.get_credential(store.LLM_KEY)
     endpoint = store.get_credential(store.LLM_ENDPOINT)
     model = store.get_credential(store.LLM_MODEL)
+    workspace = store.get_credential(store.LLM_WORKSPACE)
     if provider:
         out[BACKEND_ENV] = provider.value
     if endpoint:
         out[ENDPOINT_ENV] = endpoint.value
     if model:
         out[MODEL_ENV] = model.value
+    if workspace:
+        out[WORKSPACE_ENV] = workspace.value
     if key:
         name = {
             "typesafe": TYPESAFE_KEY_ENV,
@@ -185,7 +192,10 @@ def get_backend() -> JudgeBackend:
             )
         _refuse_split_origin(from_file, ANTHROPIC_KEY_ENV, endpoint or A_ENDPOINT, A_ENDPOINT)
         return AnthropicBackend(
-            api_key=key, endpoint=endpoint or A_ENDPOINT, model=model or A_MODEL
+            api_key=key,
+            endpoint=endpoint or A_ENDPOINT,
+            model=model or A_MODEL,
+            workspace_id=env.get(WORKSPACE_ENV, "").strip(),
         )
 
     # openai_compatible

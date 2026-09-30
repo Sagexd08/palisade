@@ -20,6 +20,7 @@ from palisade_sec.connect.store import (
     LLM_KEY,
     LLM_MODEL,
     LLM_PROVIDER,
+    LLM_WORKSPACE,
     SLACK_WEBHOOK,
     CredentialError,
     delete_credential,
@@ -107,6 +108,11 @@ def connect_llm(
     key: str | None = typer.Option(None, "--key", help="API key (prompted if omitted)."),
     endpoint: str | None = typer.Option(None, "--endpoint", help="Override the base URL."),
     model: str | None = typer.Option(None, "--model", help="Override the model id."),
+    workspace_id: str | None = typer.Option(
+        None,
+        "--workspace-id",
+        help="Anthropic workspace id (required for an organization-scoped key).",
+    ),
     verify: bool = typer.Option(True, "--verify/--no-verify", help="Check the key works."),
 ) -> None:
     """Connect an LLM provider for the judgment layer (`audit`, `review`).
@@ -125,7 +131,7 @@ def connect_llm(
         raise typer.BadParameter("no key given")
 
     if verify:
-        _verify_llm(console, provider, api_key, endpoint, model)
+        _verify_llm(console, provider, api_key, endpoint, model, workspace_id)
 
     where = set_credential(LLM_KEY, api_key)
     set_credential(LLM_PROVIDER, provider)
@@ -133,6 +139,8 @@ def connect_llm(
         set_credential(LLM_ENDPOINT, endpoint)
     if model:
         set_credential(LLM_MODEL, model)
+    if workspace_id:
+        set_credential(LLM_WORKSPACE, workspace_id.strip())
     console.print(f"[green]✓[/green] {provider} connected -> stored in {where}")
     # markup=False: rich reads `[judge]` as a style tag and drops it, which
     # turned this into `pip install 'palisade-sec'` - a command that succeeds
@@ -145,18 +153,38 @@ def connect_llm(
     )
 
 
+def _anthropic_headers(key: str, workspace_id: str | None) -> dict[str, str]:
+    """Anthropic headers, with the workspace id when one is configured.
+
+    Shared by the verify probe and the judge backend so a key that verifies is
+    a key that works - the two drifting apart would mean `--no-verify` and a
+    successful `connect` both lead to the same runtime failure.
+    """
+    from palisade_sec.judge.anthropic import API_VERSION
+
+    headers = {"x-api-key": key, "anthropic-version": API_VERSION}
+    if workspace_id:
+        headers["anthropic-workspace-id"] = workspace_id
+    return headers
+
+
 def _verify_llm(
-    console: Console, provider: str, key: str, endpoint: str | None, model: str | None
+    console: Console,
+    provider: str,
+    key: str,
+    endpoint: str | None,
+    model: str | None,
+    workspace_id: str | None = None,
 ) -> None:
     """One cheap call to prove the key works, using stdlib HTTP only."""
     try:
         if provider == "anthropic":
-            from palisade_sec.judge.anthropic import API_VERSION, DEFAULT_ENDPOINT, DEFAULT_MODEL
+            from palisade_sec.judge.anthropic import DEFAULT_ENDPOINT, DEFAULT_MODEL
 
             request_json(
                 f"{(endpoint or DEFAULT_ENDPOINT).rstrip('/')}/v1/messages",
                 method="POST",
-                headers={"x-api-key": key, "anthropic-version": API_VERSION},
+                headers=_anthropic_headers(key, workspace_id),
                 body={
                     "model": model or DEFAULT_MODEL,
                     "max_tokens": 1,
@@ -174,6 +202,16 @@ def _verify_llm(
     except HttpError as exc:
         if exc.status in (401, 403):
             raise typer.BadParameter(f"{provider} rejected that key ({exc.status}).") from None
+        # An organization-scoped Anthropic key is a configuration problem with a
+        # one-flag answer, and the provider's own message says so - but it is
+        # long enough that the body excerpt can cut it mid-sentence, which is
+        # how this was first hit. Name the fix rather than relay the fragment.
+        if provider == "anthropic" and exc.status == 400 and "workspace" in str(exc):
+            raise typer.BadParameter(
+                "that key is an organization key, not scoped to a workspace, so it needs a "
+                "workspace id. Re-run with --workspace-id <id> (Anthropic Console -> "
+                "Settings -> Workspaces), or use a workspace-scoped key."
+            ) from None
         raise typer.BadParameter(f"could not verify the key: {exc}") from None
     console.print("[dim]key verified[/dim]")
 
@@ -224,7 +262,7 @@ def disconnect_cmd(surface: str) -> None:
     keys = {
         "github": [GITHUB_TOKEN],
         "slack": [SLACK_WEBHOOK],
-        "llm": [LLM_KEY, LLM_PROVIDER, LLM_ENDPOINT, LLM_MODEL],
+        "llm": [LLM_KEY, LLM_PROVIDER, LLM_ENDPOINT, LLM_MODEL, LLM_WORKSPACE],
     }.get(surface)
     if not keys:
         raise typer.BadParameter("surface must be one of: github, slack, llm")

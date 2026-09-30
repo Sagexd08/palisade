@@ -33,6 +33,10 @@ LLM_PROVIDER = "llm.provider"
 LLM_KEY = "llm.key"
 LLM_ENDPOINT = "llm.endpoint"
 LLM_MODEL = "llm.model"
+# Anthropic organization keys are not scoped to a workspace and require this
+# header. An id, not a credential - deliberately NOT in _SECRET_KEYS, so
+# `connections` can show it and a user can see which workspace they are on.
+LLM_WORKSPACE = "llm.workspace_id"
 
 ENV_OVERRIDE: dict[str, tuple[str, ...]] = {
     GITHUB_TOKEN: ("PALISADE_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"),
@@ -41,6 +45,7 @@ ENV_OVERRIDE: dict[str, tuple[str, ...]] = {
     LLM_KEY: ("TYPESAFE_API_KEY", "ANTHROPIC_API_KEY", "PALISADE_JUDGE_API_KEY"),
     LLM_ENDPOINT: ("PALISADE_JUDGE_ENDPOINT",),
     LLM_MODEL: ("PALISADE_JUDGE_MODEL",),
+    LLM_WORKSPACE: ("ANTHROPIC_WORKSPACE_ID", "PALISADE_JUDGE_WORKSPACE_ID"),
 }
 
 _SECRET_KEYS = frozenset({GITHUB_TOKEN, SLACK_WEBHOOK, LLM_KEY})
