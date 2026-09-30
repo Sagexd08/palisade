@@ -506,7 +506,7 @@ def _grouped_corpus(tmp_path: Path, groups: list[str]) -> Path:
     rows = "\n".join(
         f"      - {{file: app.py, line: {line}, capability: exec, verdict: flag,\n"
         f"         group: {g}, mitigation: 'none', code: '{var} = q'}}"
-        for line, g, var in zip((3, 4, 5), groups, "abc")
+        for line, g, var in zip((3, 4, 5), groups, "abc", strict=True)
     )
     manifest = tmp_path / "repos.yaml"
     manifest.write_text(
