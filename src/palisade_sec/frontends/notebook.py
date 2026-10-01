@@ -118,6 +118,30 @@ class NotebookFrontend:
     name = "jupyter"
     extensions = (".ipynb",)
 
+    def suppression_source(self, source: str) -> str:
+        """Suppressions are read from the REASSEMBLED source, not the raw
+        `.ipynb` JSON.
+
+        A finding's line number is a line in the reassembled source, so
+        `parse_suppressions` has to see the same text or the two never line
+        up. Read against the raw JSON instead, an in-cell
+        `exec(code)  # palisade: ignore[PI-EXEC]` is not merely ignored: the
+        comment lands on whatever JSON line happens to contain that cell's
+        source string, so it either silences nothing (the usual case, and a
+        user who marked a false positive reviewed gets no finding suppressed
+        and no stale-suppression warning telling them why) or silences a
+        different finding whose line happens to collide. Both are exactly the
+        silent-suppression failure invariant 10 exists to prevent.
+
+        This re-parses the notebook JSON a second time, which is cheap next to
+        `ast.parse` plus the taint pass, and keeps the frontend stateless -
+        no cache to go stale or make a scan order-dependent.
+        """
+        combined = reassemble(source)
+        # None means the notebook was unreadable; `lower_file` reports that as
+        # a ParseFailure and the scanner never reaches this for such a file.
+        return "" if combined is None else combined
+
     def lower_file(self, path: str, rel_path: str, source: str) -> ir.Module | ParseFailure:
         doc = _parse_notebook_json(source)
         if doc is None:

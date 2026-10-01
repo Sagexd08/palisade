@@ -5,6 +5,11 @@ five-line GitHub Action put Palisade findings straight into the Security tab as
 code-scanning alerts. Severity maps high->error, med->warning, low->note. The
 sink is the primary location; source and LLM boundary are related locations.
 Fingerprints are line-shift resilient, so alerts don't churn on refactors.
+
+One exception to "the line is the line": a `.ipynb` finding's line is a line
+of the reassembled notebook source, not of the JSON file on disk, so notebook
+results are anchored at the file and carry the real line in the message and in
+`properties["palisade/notebookSinkLine"]`. See `_location`.
 """
 
 from __future__ import annotations
@@ -20,6 +25,25 @@ _LEVEL = {"high": "error", "med": "warning", "low": "note"}
 _INFO_URI = "https://github.com/arpankernel/palisade"
 
 
+def _is_notebook(file: str) -> bool:
+    return file.lower().endswith(".ipynb")
+
+
+def _notebook_line_note(tp: TracePoint) -> str:
+    """Short form, for the per-location role messages."""
+    return f"reassembled notebook line {tp.line}"
+
+
+def _notebook_result_note(tp: TracePoint) -> str:
+    """Long form, once per result: says what the number means and why the
+    alert is not pinned to a line of the file."""
+    return (
+        f"Notebook: line {tp.line} of the reassembled notebook source "
+        "(`jupyter nbconvert --to script` numbering), not a line of the "
+        ".ipynb file, which is JSON - so this alert is anchored at the file."
+    )
+
+
 def _uri(file: str, base_uri: str) -> str:
     """Make the artifact URI relative to the repository root.
 
@@ -33,14 +57,37 @@ def _uri(file: str, base_uri: str) -> str:
 
 
 def _location(tp: TracePoint, role: str | None = None, base_uri: str = "") -> dict:
+    """One SARIF location for a trace point.
+
+    Notebooks are the one case where a finding's line is NOT a line of the
+    file on disk. `.ipynb` is JSON; the line belongs to the reassembled cell
+    source (see `frontends/notebook.py`). A single-line minified notebook has
+    no line 12 at all, and a pretty-printed one has a line 12 pointing at
+    arbitrary JSON metadata - a confidently wrong annotation, which is worse
+    for a reviewer than none.
+
+    So a notebook result is anchored at the file (`startLine: 1`) and the
+    reassembled line is carried in the message instead. The region is *kept*
+    rather than dropped: GitHub code scanning requires `region.startLine` and
+    rejects the whole run without it, so one region-less result would discard
+    every finding in the upload. `region.snippet` still carries the real sink
+    text, so the alert names the code even though it cannot point at it.
+    """
+    notebook = _is_notebook(tp.file)
     loc: dict = {
         "physicalLocation": {
             "artifactLocation": {"uri": _uri(tp.file, base_uri)},
-            "region": {"startLine": max(1, tp.line), "snippet": {"text": tp.snippet}},
+            "region": {
+                "startLine": 1 if notebook else max(1, tp.line),
+                "snippet": {"text": tp.snippet},
+            },
         }
     }
     if role:
-        loc["message"] = {"text": f"{role}: {tp.snippet}".strip()}
+        text = f"{role}: {tp.snippet}".strip()
+        if notebook:
+            text = f"{text} [{_notebook_line_note(tp)}]"
+        loc["message"] = {"text": text}
     return loc
 
 
@@ -50,6 +97,10 @@ def _message(f: Finding) -> str:
         parts.append("Attack: " + f.attack.strip())
     if f.fix.strip():
         parts.append("Fix: " + f.fix.strip())
+    if _is_notebook(f.sink.file):
+        # The location cannot carry this (see `_location`), so the message
+        # must, or the line number is simply lost to a SARIF consumer.
+        parts.append(_notebook_result_note(f.sink))
     return "\n\n".join(parts)
 
 
@@ -106,6 +157,10 @@ def to_sarif(
                 "partialFingerprints": {"palisade/v1": f.fingerprint},
             }
         )
+        if _is_notebook(f.sink.file):
+            # Machine-readable twin of the message note, so a consumer does
+            # not have to parse prose to recover the cell line.
+            results[-1]["properties"] = {"palisade/notebookSinkLine": f.sink.line}
 
     run: dict = {
         "tool": {

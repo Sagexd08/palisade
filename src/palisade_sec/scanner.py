@@ -42,6 +42,22 @@ class Frontend(Protocol):
 
     def lower_file(self, path: str, rel_path: str, source: str) -> ir.Module | ParseFailure: ...
 
+    def suppression_source(self, source: str) -> str:
+        """The text inline `palisade: ignore` comments are read from.
+
+        For every frontend that parses the file as written this is the file
+        text itself. A frontend that *rewrites* the text before parsing must
+        override it and return the rewritten text, because a finding's line
+        number refers to that text - reading suppressions off the original
+        would make an in-file `palisade: ignore` silently inert, or (worse)
+        fire against a line that merely happens to collide. Both break
+        invariant 10: suppressions stay loud.
+
+        This is deliberately part of the Protocol rather than an optional
+        duck-typed hook, so mypy fails a new frontend that forgets it.
+        """
+        ...
+
 
 PY_EXTENSIONS = (".py", ".pyi")
 JS_EXTENSIONS = (".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx")
@@ -307,7 +323,9 @@ def lower_project(target: Path, config_file: str | None = None) -> LoweredProjec
             out.skipped.append(f"{rel}: parse error, file skipped ({lowered.reason})")
             continue
         lowered.content_hash = hashlib.sha256(raw).hexdigest()[:16]
-        found = parse_suppressions(source)
+        # NOT `source`: the suppression text is whatever the frontend
+        # actually parsed, which for a notebook is the reassembled cells.
+        found = parse_suppressions(frontend.suppression_source(source))
         if found:
             out.suppressions[rel] = found
         out.modules.append(lowered)

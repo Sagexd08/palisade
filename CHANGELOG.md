@@ -17,6 +17,31 @@
   is not Python (`metadata.language_info.name`) is skipped with a clear
   reason rather than guessed at. `.ipynb_checkpoints/` joins the
   always-excluded directory list.
+- **Inline suppressions work inside notebook cells.** `Frontend` grew a
+  `suppression_source` seam: the scanner reads `palisade: ignore` comments
+  from the text the frontend actually parsed, not from the raw file. Without
+  it a notebook's suppressions were read off the `.ipynb` JSON, so an in-cell
+  `exec(code)  # palisade: ignore[PI-EXEC]` did not merely fail to
+  silence the finding - the comment landed on whatever JSON line held that
+  cell's source string, which could instead silence an unrelated finding
+  whose line happened to collide. Both halves break invariant 10
+  (suppressions stay loud): the user who marked a false positive reviewed got
+  no suppression and no stale-suppression warning explaining why. The seam is
+  on the Protocol rather than duck-typed, so mypy fails a future frontend
+  that rewrites source and forgets it. Prose in a markdown cell cannot
+  suppress anything, and a notebook comment that matches nothing is reported
+  stale at its reassembled-source line.
+- **SARIF anchors a notebook finding at the file, not at a line.** A
+  `.ipynb` line number belongs to the reassembled source, so emitting it as
+  `region.startLine` annotated arbitrary JSON metadata - or a line that does
+  not exist at all, in a single-line notebook. A notebook result now carries
+  `startLine: 1` plus the real line in the result message and in
+  `properties["palisade/notebookSinkLine"]`. The region is kept rather than
+  omitted deliberately: GitHub code scanning requires `region.startLine` and
+  rejects the whole run without it, so one region-less result would discard
+  every finding in the upload. `.py`/`.js` findings keep their real line.
+  The convention is now documented in `docs/cli-reference.md`, where the
+  `--json` schema contract lives.
 
 ## 0.7.0 - 2026-09-30
 

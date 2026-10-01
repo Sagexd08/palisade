@@ -36,7 +36,11 @@ Three load-bearing decisions:
    changes**, the same YAML rules match both languages, and the notebook
    frontend adds a whole new file format by reassembling `.ipynb` cells into
    Python source and delegating to the Python frontend - zero engine changes
-   again.
+   again. A frontend that rewrites the text before parsing owes the scanner
+   one more method, `suppression_source`, so inline `palisade: ignore`
+   comments are read from the text a finding's line number actually refers
+   to; it is on the `Frontend` Protocol, not duck-typed, so a frontend that
+   forgets it fails mypy rather than shipping silently inert suppressions.
 2. **Rules are data.** Sources, LLM signatures, sinks, sanitizers, and
    partial defenses are dotted-path patterns in YAML, validated by a
    pydantic schema. New framework coverage is a rule PR, never an engine PR.

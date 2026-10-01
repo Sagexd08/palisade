@@ -32,6 +32,11 @@ class PythonFrontend:
     name = "python"
     extensions = (".py", ".pyi")
 
+    def suppression_source(self, source: str) -> str:
+        """Python is parsed as written, so suppressions are read from the file
+        text unchanged."""
+        return source
+
     def lower_file(self, path: str, rel_path: str, source: str) -> ir.Module | ParseFailure:
         try:
             # Scanned source must never be able to write to our output.

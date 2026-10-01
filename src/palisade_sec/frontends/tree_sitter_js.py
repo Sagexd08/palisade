@@ -50,6 +50,11 @@ class JavaScriptFrontend:
             "tsx": Parser(Language(_tsts.language_tsx())),
         }
 
+    def suppression_source(self, source: str) -> str:
+        """JS/TS is parsed as written, so suppressions are read from the file
+        text unchanged."""
+        return source
+
     def lower_file(self, path: str, rel_path: str, source: str) -> ir.Module | ParseFailure:
         low = rel_path.lower()
         if low.endswith(".tsx"):

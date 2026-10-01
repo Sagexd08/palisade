@@ -79,6 +79,16 @@ steps:
     with: { sarif_file: palisade.sarif }
 ```
 
+**Notebooks are anchored at the file.** A `.ipynb` finding's line is a line of
+the reassembled notebook source, not of the JSON file on disk (see *Notebook
+line numbers* below), so pointing code scanning at it would annotate arbitrary
+JSON metadata - or a line that does not exist, in a minified notebook. A
+notebook result therefore carries `region.startLine: 1` and the real line in
+the result message and in `properties["palisade/notebookSinkLine"]`. The region
+is kept rather than omitted because GitHub code scanning requires
+`region.startLine` and rejects the entire upload without it. Findings in
+ordinary `.py` / `.js` files are unaffected and keep their real line.
+
 ## `palisade-sec baseline [PATH]`
 
 Fingerprint current findings so CI fails only on new ones.
@@ -321,6 +331,11 @@ The comment goes on the **sink line**, or the line directly above it. `#`
 and `//` are both accepted, so the same syntax works in Python and JS/TS.
 Rule ids are case-insensitive.
 
+In a Jupyter notebook the comment goes in the **code cell**, on the same line
+as the sink or the line above it - exactly as in a `.py` file. Suppressions are
+read from the reassembled cell source, not from the raw `.ipynb` JSON, so a
+comment in a markdown cell silences nothing (and is reported stale).
+
 Suppressions are deliberately loud, because a silent one is how a
 vulnerability quietly comes back:
 
@@ -413,6 +428,28 @@ Notes for consumers:
   handlers it's the matched source pattern (`request.json`, `req.body`, …).
 - `notes` may include an inter-procedural truncation notice on very deep
   call chains - recall, not precision, is what truncation affects.
+
+### Notebook line numbers
+
+`line` (and every `trace.*.line`) is a 1-based line of the file as the frontend
+parsed it. For `.py` and `.js`/`.ts` that is the file on disk. For a `.ipynb`
+it is a line of the **reassembled notebook source**: the notebook frontend
+joins the code cells into one Python source, nbconvert-style, with a
+`# In[N]:` marker line before each cell. This is part of the `schema_version:
+1` contract.
+
+Two ways to resolve one to a cell:
+
+```bash
+jupyter nbconvert --to script notebook.ipynb   # writes notebook.py, same numbering
+```
+
+or count `# In[N]:` markers: markers appear for every cell including markdown
+and raw ones, so the Nth marker is the Nth cell in the notebook, and a reported
+line falls inside the cell whose marker precedes it.
+
+`--sarif` does not use these numbers as file lines; see *SARIF / GitHub code
+scanning* above.
 
 ## Baseline file format
 
